@@ -69,6 +69,7 @@ def insert_db(entry, db):
             if 'link' in d:
                 d['link'] = ','.join(d['link'])
             d['idx'] = '%d' % j
+            d['heteronym_id'] = heteronym_id
             db.insert_dict('definitions', d)
 
 def main():
