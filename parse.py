@@ -377,7 +377,12 @@ def normalize(key, s):
         return '{[%s]}' % c
     s = re.sub(r'<img src="images/([0-9a-f]{4}).jpg" border="0"\s*/>(?:&nbsp;)?', mapping, s)
 
-    s = re.sub(ur'(["「])｜', u'\1⼁', s)
+    # Fix ⼁(U+2F01)
+    s = s.replace(u'如、－｜', u'如、－⼁')
+    s = s.replace(u'｜，下上通也', u'⼁，下上通也')
+    if key == 'titledata':
+        s = s.replace(u'｜', u'⼁')
+
     s = s.translate(normal_map)
     #if key == 'bopomofo':
     #    s = s.replace(u'｜', u'ㄧ')
