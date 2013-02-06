@@ -398,6 +398,7 @@ def json_dumps(o):
     s = re.sub(r'\n( +)',
             lambda m: '\n'+'\t'*len(m.group(1)),
             s)
+    s = s.replace(' \n', '\n')
     return s
 
 def process_data(data):
