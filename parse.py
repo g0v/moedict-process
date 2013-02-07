@@ -155,6 +155,7 @@ def build_normal_map():
     normal_map[ord(u'｜')] = u'ㄧ'
     normal_map[ord(u'　')] = u' '
     normal_map[ord(u'˙')] = u'．'
+    normal_map[ord(u'､')] = u'、'
 
 def strip(html):
     html = html.strip()
