@@ -259,14 +259,14 @@ def parse_defs(detail, d):
             pos = result[0]
             continue
         if len(result) == 3:
-            assert result[0] == '' or result[0] in pos_map.values() or result[0] in '{[97d2]}'
+            assert result[0] == '' or result[0] in pos_map.values() or result[0] == '{[97d2]}'
             if result[0] in pos_map.values():
                 pos = result[0]
             assert result[1] == '' or result[1] in number_map.values()
             order += 1
             text = result[2]
         elif len(result) == 2:
-            assert result[0] == '' or result[0] in number_map.values()
+            assert result[0] == '' or result[0] in number_map.values() or result[0] == '{[97d2]}'
             order += 1
             text = result[1]
         else:
