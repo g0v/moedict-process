@@ -352,6 +352,10 @@ def parse_heteronym(html):
             pinyin=d['pinyin'],
             )
     basic = parse_basic(d['titledata'])
+    if 'stroke_count' in basic:
+        basic['stroke_count'] = int(basic['stroke_count'])
+    if 'non_radical_stroke_count' in basic:
+        basic['non_radical_stroke_count'] = int(basic['non_radical_stroke_count'])
     heteronym['definitions'] = parse_defs(d['detail'], d)
 
     associate_to_defs('synonyms', d, heteronym['definitions'])
