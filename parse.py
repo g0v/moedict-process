@@ -411,12 +411,63 @@ def json_dumps(o):
     s = s.replace(' \n', '\n')
     return s
 
+def fix_big5_data(s):
+    # ---------------------------------------------------------------
+    # special case
+    # html/A5AC/150.html 布爾諾(Br??no)
+    # Should be Brno, or Brunn
+    s = s.replace('(Br\x97\xe7no)', '(Brno)')
+    # html/C3F8/34.html
+    s = s.replace('\xa3\xf6', '</tr><tr><td valign=top>')
+
+    # ---------------------------------------------------------------
+    # html/AA69/63.html 波哥大(Ｂｏｇｏｔ??)
+    s = s.replace('\xfe\x69', '{[fe69]}')
+    # html/AA69/122.html 波爾(Heinrich B??ll)
+    s = s.replace('\x92\x70', '{[9270]}')
+    # html/AB6B/2.html 勃姆(B??hm Theobald)
+    s = s.replace('\x92\x70', '{[9270]}')
+    # html/AC66/24.html 柏卡里(Muhammad ibn Ismail al-Bukh??r??)
+    s = s.replace('\xfe\x68', '{[fe68]}')
+    s = s.replace('\xfe\x70', '{[fe70]}')
+    # html/AC66/30.html 柏濟力阿斯(J??ns Jacob Berzelius)
+    s = s.replace('\x92\x70', '{[9270]}')
+    # html/ACA5/5.html 洛梅(Ｌｏｍ??)
+    s = s.replace('\xfe\x6d', '{[fe6d]}')
+    # html/AD7B/9.html 迦旃延(ｋａｔｙ??ｙａｎａ)
+    s = s.replace('\xfe\x68', '{[fe68]}')
+    # html/AE4C/7.html 夏目漱石(Natsume s??seki)
+    s = s.replace('\xfe\x74', '{[fe74]}')
+    # html/B14B/56.html 密支那(Myitkyin??)
+    s = s.replace('\xfe\x68', '{[fe68]}')
+    # html/B3CD/1.html 凱末爾(Atat??rk，Kemal)
+    s = s.replace('\x97\xe7', '{[97e7]}')
+    # html/B648/50.html 象牙海岸(C??te  d'Ivoire)
+    s = s.replace('\x9a\xeb', '{[9aeb]}')
+    # html/B648/51.html 象牙海岸共和國(Ｒｅｐｕｂｌｉｃ　ｏｆ　Ｃ??ｔｅ　ｄ'Ｉｖｏｉｒｅ)
+    s = s.replace('\x9a\xeb', '{[9aeb]}')
+    # html/C4AC/19.html 蘇黎士(Z??rich)
+    s = s.replace('\x97\xe7', '{[97e7]}')
+    return s
+
+
+def decode_big5(s):
+    try:
+        return s.decode('big5')
+    except UnicodeDecodeError:
+        pass
+
+    try:
+        s = fix_big5_data(s)
+        return s.decode('big5')
+    except UnicodeDecodeError:
+        logging.exception('bad big5 char?')
+        return None
+
 def process_data(data):
     try:
-        try:
-            content = data.decode('big5')
-        except UnicodeDecodeError:
-            logging.exception('bad big5 char?')
+        content = decode_big5(data)
+        if not content:
             return False
 
         basic, heteronym = parse_heteronym(content)
