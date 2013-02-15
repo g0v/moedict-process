@@ -154,7 +154,6 @@ def build_normal_map():
         normal_map[0xff41+i] = unichr(ord(u'a')+i)
     normal_map[ord(u'｜')] = u'ㄧ'
     normal_map[ord(u'　')] = u' '
-    normal_map[ord(u'˙')] = u'．'
     normal_map[ord(u'､')] = u'、'
 
 def strip(html):
@@ -389,6 +388,7 @@ def normalize(key, s):
         s = s.replace(u'｜', u'⼁')
 
     s = s.translate(normal_map)
+    s = re.sub(ur'˙(?![\u3100-\u312f])', u'．', s)
     #if key == 'bopomofo':
     #    s = s.replace(u'｜', u'ㄧ')
     #if key in ('bopomofo2', 'pinyin'):
