@@ -120,6 +120,13 @@ fea5 z̀
 9ce2 ǎ
 9ce3 à
 9ce4 g
+97f6 a
+9bcd ǖ
+9bce ǘ
+9bcf ǚ
+9bd0 ǜ
+97e7 ü
+9bd4 ề
 '''.strip().splitlines()))
 
 re_char = r'(?:.|\{\[....\]\})'
