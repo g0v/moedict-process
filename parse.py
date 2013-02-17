@@ -386,6 +386,7 @@ def normalize(key, s):
         if c in phonetone_map:
             return phonetone_map[c]
         return '{[%s]}' % c
+    s = re.sub(r'\{\[([0-9a-f]{4})\]\}', mapping, s)
     s = re.sub(r'<img src="images/([0-9a-f]{4}).jpg" border="0"\s*/>(?:&nbsp;)?', mapping, s)
 
     # Fix ⼁(U+2F01)
