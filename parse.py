@@ -39,21 +39,21 @@ fe55 <4>
 fe56 <5>
 fe57 <6>
 fe58 <7>
-fe59 (1)
-fe5a (2)
-fe5b (3)
-fe5c (4)
-fe5d (5)
-fe5e (6)
-fe5f (7)
-fe60 (8)
-fe61 (9)
-fe62 (10)
-fe63 (11)
-fe64 (12)
-fe65 (13)
-fe66 (14)
-fe67 (15)
+fe59 {1}
+fe5a {2}
+fe5b {3}
+fe5c {4}
+fe5d {5}
+fe5e {6}
+fe5f {7}
+fe60 {8}
+fe61 {9}
+fe62 {10}
+fe63 {11}
+fe64 {12}
+fe65 {13}
+fe66 {14}
+fe67 {15}
 '''.strip().splitlines()))
 
 phonetone_map = dict(map(unicode.split, u'''
@@ -306,6 +306,7 @@ def associate_to_defs(key, data, defs):
     text = data[key]
     if text:
         logging.debug('associate_to_defs %s: %s' % (key, text))
+        text = re.sub(r'\{(\d{1,2})\}', r'(\1)', text)
     while text:
         m = re.match(ur'^((?:\(\d+\))*)([^()]+)', text)
         if not m:
