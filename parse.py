@@ -26,6 +26,8 @@ pos_map = dict(
         feda=u'連',
         fee0=u'代',
         )
+pos_map['97d6']=u'辨'
+pos_map['97d5']=u'似'
 
 number_map = dict(map(unicode.split, u'''
 fe52 <1>
@@ -263,6 +265,9 @@ def parse_defs(detail, d):
         #print result
         if len(result) == 1 and result[0] in pos_map.values():
             pos = result[0]
+            continue
+        if len(result) == 1 and result[0] == u'辨&nbsp似':
+            pos = u'辨似'
             continue
         if len(result) == 3:
             assert result[0] == '' or result[0] in pos_map.values() or result[0] == '{[97d2]}'
