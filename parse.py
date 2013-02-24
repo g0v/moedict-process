@@ -26,6 +26,8 @@ pos_map = dict(
         feda=u'連',
         fee0=u'代',
         )
+pos_map['97e3']=u'綴'
+pos_map['967b']=u'狀'
 pos_map['97d6']=u'辨'
 pos_map['97d5']=u'似'
 
@@ -283,6 +285,7 @@ def parse_defs(detail, d):
         else:
             assert len(result) == 1
             text = result[0]
+            assert not re.match(ur'^\{\[....\]\}$', text)
             order += 1
 
         definition = { 'def': text }
