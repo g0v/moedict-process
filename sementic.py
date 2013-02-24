@@ -107,7 +107,7 @@ def classify_sentence(s):
     if re.match(ur'^如：「(.+)」', s):
         return 1
 
-    if re.match(ur'^(同|亦作|亦稱為|俗稱為|或作|亦作|通|或稱為|簡稱為|或譯作)「(.+?)」。', s):
+    if re.match(ur'^(同|亦作|亦稱為|俗稱為|或作|亦作|通|或稱為|簡稱為|或譯作|縮稱為)「(.+?)」。', s):
         return 3
 
     if re.match(ur'見「(.+?)」等?條。', s):
