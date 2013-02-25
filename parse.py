@@ -54,6 +54,10 @@ fe64 {12}
 fe65 {13}
 fe66 {14}
 fe67 {15}
+98bd {16}
+98be {17}
+98bf {18}
+98c0 {19}
 '''.strip().splitlines()))
 
 phonetone_map = dict(map(unicode.split, u'''
@@ -252,6 +256,13 @@ def parse_def(text, definition):
 
 def parse_defs(detail, d):
     detail = detail.strip()
+
+    # workaround for definition index > 15
+    detail = re.sub(
+            ur'(?<!>)(\{(?:1[6-9])\})',
+            r'</td></tr>\n><tr><td></td><td>\1</td><td>',
+            detail)
+
     logging.debug('detail=%s' % repr(detail))
     #print 'detail=>', repr(detail)
     items = re.findall('<tr>(.+?)</tr>', detail)
