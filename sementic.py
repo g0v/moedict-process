@@ -34,7 +34,7 @@ def split_sentence(s):
         if not wait and any([
             re.search(ur'。$', snt),
             re.search(ur'：「.*」$', snt),
-            ]) and (s[i+1:i+2] not in u'、。'):
+            ]) and (s[i+1:i+2] not in u'、。') and s[i+1:i+3] != u'句下':
             sentences.append(snt)
             snt = ''
 
