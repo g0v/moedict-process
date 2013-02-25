@@ -417,10 +417,12 @@ def normalize(key, s):
 
     s = s.translate(normal_map)
     s = re.sub(ur'˙(?![\u3100-\u312f])', u'．', s)
-    #if key == 'bopomofo':
-    #    s = s.replace(u'｜', u'ㄧ')
-    #if key in ('bopomofo2', 'pinyin'):
-    #    s = re.sub(ur'([a-z]+)([0-9])([a-z]+)', r'\1\3\2', s)
+
+    # workaround bad parentheses
+    s = re.sub(ur'（([^()（）]+)\)', r'(\1)', s)
+    s = re.sub(ur'\(([^()（）]+)）', r'(\1)', s)
+    s = re.sub(ur'（(\d{1,2})）', r'(\1)', s)
+
     s = s.strip()
     return s
 
