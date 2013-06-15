@@ -37,7 +37,17 @@ CREATE TABLE "definitions" (
     "link" text,
     "source" varchar(255)
 );
-
+ 
+CREATE TABLE "translations" (
+    "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    "entry_id" integer,
+    "idx" integer,
+    "lang" varchar(255),
+    "def" text
+);
+ 
 CREATE INDEX "index_entries_on_dict_id" ON "entries" ("dict_id");
 CREATE INDEX "index_heteronyms_on_entry_id" ON "heteronyms" ("entry_id");
 CREATE INDEX "index_definations_on_heteronym_id" ON "definitions" ("heteronym_id");
+CREATE INDEX "index_translations_on_entry_id" ON "translations" ("entry_id");
+

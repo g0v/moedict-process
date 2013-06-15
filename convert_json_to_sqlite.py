@@ -50,7 +50,7 @@ def dict_filter(dct, excludes=[], **argd):
 
 def insert_db(entry, db):
     entry_id = db.insert_dict('entries',
-            dict_filter(entry, excludes=['heteronyms'], dict_id=dict_id))
+            dict_filter(entry, excludes=['heteronyms', 'translation', 'English', 'francais', 'Deutsch'], dict_id=dict_id))
     word_to_id[entry['title']] = entry_id
 
     logging.debug('entry_id=%d' % entry_id)
@@ -72,6 +72,11 @@ def insert_db(entry, db):
             d['heteronym_id'] = heteronym_id
             db.insert_dict('definitions', d)
 
+    if 'translation' in entry:
+        for i, l in enumerate(entry['translation']):
+            for j, d in enumerate(entry['translation'][l]):
+                language_id = db.insert_dict('translations', {'lang': l, 'def': d, 'idx': '%d' % i, 'entry_id': entry_id})
+ 
 def main():
     db = DB()
     try:
