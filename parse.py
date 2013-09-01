@@ -186,6 +186,11 @@ def parse_basic(title):
     if m:
         return m.groupdict()
 
+    # workaround for "【嗷鴻"
+    m = re.match(ur'''【(?P<title>.+)''', title)
+    if m:
+        return m.groupdict()
+
     m = re.match(ur'''(?P<title>.+)''', title)
     if m:
         return m.groupdict()
@@ -587,7 +592,7 @@ def rawdata_iter():
 
 def rawdata_iter():
     import tarfile
-    tf = tarfile.TarFile.open('crawl/dict-revised.rawhtml.201301.tar.bz2')
+    tf = tarfile.TarFile.open('crawl/dict-revised.rawhtml.tar.bz2')
     lastdir = ''
     for ti in tf:
         d, _ = os.path.split(ti.name)
