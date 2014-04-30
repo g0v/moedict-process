@@ -24,6 +24,6 @@ Build
 See also
 --------
 * Data files http://kcwu.csie.org/~kcwu/moedict/
-* Project site http://3du.tw/ ( https://hackpad.com/3du.tw-UJJETE2igdi )
+* Project site http://3du.tw/ ( https://g0v.hackpad.com/3du.tw-ZNwaun62BP4 )
 * Bug report or feedback here https://github.com/g0v/moedict-process/issues
 * IRC: FreeNet #g0v.tw
