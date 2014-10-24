@@ -511,8 +511,14 @@ def process_data(data):
         logging.debug('title = '+title)
 
         if title in basic_data:
-            # TODO check consistent?
-            pass
+            if basic_data[title] != basic:
+                logging.warn('basic data mismatch')
+                logging.warn('basic data 1: ' + json_dumps(basic))
+                logging.warn('basic data 2: ' + json_dumps(basic_data[title]))
+                # workaround for https://github.com/g0v/moedict-process/issues/11
+                if len(str(heteronym_data)) > len(str(heteronym)):
+                    basic = basic_data[title]
+
         basic_data[title] = basic
         heteronym_data[title].append(heteronym)
 
