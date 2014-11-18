@@ -22,7 +22,7 @@ pos_map = dict(
         fed6=u'副',
         fed7=u'助',
         fed8=u'介',
-        fed9=u'嘆',
+        fed9=u'歎',
         feda=u'連',
         fee0=u'代',
         )
