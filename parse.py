@@ -81,6 +81,8 @@ def parse_def(text, definition):
 
 
 def parse_defs(detail):
+    detail = re.sub(ur'[^\b\n\r]\[(.*)\]',r'\n[\1]', detail)
+    detail = re.sub(ur'\[(.*)\][^\b\n\r]',r'[\1]\n', detail)
     lines = detail.splitlines()
     definitions = []
     pos = ''
