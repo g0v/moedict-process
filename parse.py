@@ -81,12 +81,14 @@ def parse_def(text, definition):
 
 
 def parse_defs(detail):
-    detail = re.sub(ur'[^\b\n\r]\[(.*)\]',r'\n[\1]', detail)
-    detail = re.sub(ur'\[(.*)\][^\b\n\r]',r'[\1]\n', detail)
+    detail = re.sub(ur'(\(.{1}\))\[([^倫]{1})\]([^\b\r\n])',r'[\2]\n\1\3', detail)
+    detail = re.sub(ur'([^\b\n\r])\[([^倫]{1})\]',r'\1\n[\2]', detail)
+    detail = re.sub(ur'\[([^倫]{1})\]([^\b\r\n])',r'[\1]\n\2', detail)
     lines = detail.splitlines()
     definitions = []
     pos = ''
     for item in lines:
+        item = item.strip()
         if not item:
             continue
         logging.debug('def_item=%s' % item)
