@@ -1,1 +1,3 @@
 Makefile.local
+dict_revised/
+*.pyc
