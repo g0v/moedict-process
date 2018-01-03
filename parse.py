@@ -186,6 +186,7 @@ def normalize(s):
     if not (isinstance(s, unicode) or isinstance(s, str)):
         return ""
     s = re.sub(r'&(\w*?)\._104_0\.gif;?', r'{[\1]}', s)
+    s = re.sub(r'&([0-9a-fA-F]*?);?_\.png;?', r'{[\1]}', s)
     return s
 
 
