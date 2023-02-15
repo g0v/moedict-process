@@ -12,7 +12,7 @@ import optparse
 
 import sementic
 
-import xlrd
+import xlrd3
 
 basic_data = {}
 heteronym_data = collections.defaultdict(list)
@@ -192,7 +192,7 @@ def normalize(s):
 
 def process_excel(filename):
     try:
-        book = xlrd.open_workbook(filename)
+        book = xlrd3.open_workbook(filename)
         sh = book.sheet_by_index(0)
         for rx in range(1, sh.nrows):
             basic, heteronym = parse_heteronym(sh.row(rx))
@@ -282,7 +282,7 @@ def rawdata_iter():
         logging.info(root)
         dirs.sort()
         for fn in sorted(files):
-            if not fn.endswith('.xls'):
+            if not fn.endswith('.xlsx'):
                 continue
             path = os.path.join(root, fn)
             logging.debug(path)
