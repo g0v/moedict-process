@@ -2,5 +2,6 @@ Makefile.local
 dict_revised/
 *.pyc
 venv
+.venv
 dict-revised.json
 parse.log
