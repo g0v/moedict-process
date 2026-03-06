@@ -3,5 +3,6 @@ dict_revised/
 *.pyc
 venv
 .venv
+.python-version
 dict-revised.json
 parse.log
