@@ -9,6 +9,7 @@ import logging
 import json
 import collections
 import optparse
+import subprocess
 
 import sementic
 
@@ -16,6 +17,11 @@ try:
     import xlrd3
 except ImportError:
     import xlrd as xlrd3
+
+try:
+    import lzma
+except ImportError:
+    lzma = None
 
 basic_data = {}
 heteronym_data = collections.defaultdict(list)
@@ -278,12 +284,27 @@ def process_excel(filename):
 
 def dump_json():
     logging.info('dump_json')
-    with codecs.open('dict-revised.json', 'w', 'utf8') as f:
+    json_path = 'dict-revised.json'
+    xz_path = json_path + '.xz'
+    with codecs.open(json_path, 'w', 'utf8') as f:
         for k in basic_data.keys():
             basic_data[k]['heteronyms'] = heteronym_data[k]
         jn = json_dumps(sorted(basic_data.values(),
                                key=lambda x: x['title']))
         f.write(jn + '\n')
+
+    if lzma:
+        logging.info('dump_xz via lzma')
+        with lzma.open(xz_path, 'wb') as f:
+            f.write((jn + '\n').encode('utf8'))
+    else:
+        logging.info('dump_xz via xz command')
+        try:
+            subprocess.check_call(['xz', '-z', '-f', '-k', json_path])
+        except OSError:
+            logging.exception('xz command not found')
+        except subprocess.CalledProcessError:
+            logging.exception('xz command failed')
 
 
 def post_processing():
