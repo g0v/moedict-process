@@ -12,7 +12,10 @@ import optparse
 
 import sementic
 
-import xlrd3
+try:
+    import xlrd3
+except ImportError:
+    import xlrd as xlrd3
 
 basic_data = {}
 heteronym_data = collections.defaultdict(list)
@@ -110,6 +113,11 @@ def parse_defs(detail):
 
 
 def associate_to_defs(key, text, defs):
+    if text and not defs:
+        # Some rows contain synonyms/antonyms without definitions.
+        # Keep output shape stable and avoid index errors.
+        defs.append({'def': u''})
+
     while text:
         m = re.match(ur'^((?:\d+\.)*)(.*)', text)
         if not m:
@@ -128,40 +136,87 @@ def associate_to_defs(key, text, defs):
                     if m1 and m1.group(1):
                         defIndex = int(m1.group(1))
                         if idx == defIndex:
-                            if key in defs[idx - 1]:
-                                defs[idx - 1][key] += ',' + v
+                            if key in d:
+                                d[key] += ',' + v
                             else:
-                                defs[idx - 1][key] = v
+                                d[key] = v
 
 
 def parse_heteronym(cells):
+    # Old format has 14 columns; newer source has 18 columns with shifted fields.
+    # Keep output schema unchanged by mapping both layouts to old logical indexes.
+    col = dict(
+        title=2,
+        term_type=0,
+        radical=3,
+        stroke_count=5,
+        non_radical_stroke_count=4,
+        bopomofo=6,
+        pinyin=7,
+        synonyms=8,
+        antonyms=9,
+        definitions=10,
+        notes=11,
+    )
+    if len(cells) >= 18:
+        col = dict(
+            title=0,
+            term_type=2,
+            radical=4,
+            stroke_count=5,
+            non_radical_stroke_count=6,
+            bopomofo=8,
+            pinyin=11,
+            synonyms=13,
+            antonyms=14,
+            definitions=15,
+            notes=16,
+        )
+
+    def cell_text(idx):
+        if idx >= len(cells):
+            return u''
+        return normalize(cells[idx].value)
+
+    def cell_int(idx, default=0):
+        if idx >= len(cells):
+            return default
+        v = cells[idx].value
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            try:
+                return int(float(v))
+            except (TypeError, ValueError):
+                return default
+
     # 0:字詞屬性 1:字詞號 2:字詞名 3:部首字 4:部首外筆畫數 
     # 5:總筆畫數  6:注音一式  7:漢語拼音  8:相似詞 9:相反詞
     # 10:釋義  11:編按  12:多音參見訊息  13:異體字
     heteronym = dict(
-        bopomofo=cells[6].value,
-        pinyin=cells[7].value,
-        definitions=parse_defs(normalize(cells[10].value))
+        bopomofo=cell_text(col['bopomofo']),
+        pinyin=cell_text(col['pinyin']),
+        definitions=parse_defs(cell_text(col['definitions']))
     )
     associate_to_defs('synonyms', normalize(
-        cells[8].value), heteronym['definitions'])
+        cell_text(col['synonyms'])), heteronym['definitions'])
     associate_to_defs('antonyms', normalize(
-        cells[9].value), heteronym['definitions'])
+        cell_text(col['antonyms'])), heteronym['definitions'])
 
-    if cells[11].ctype != 0:  #0: XL_CELL_EMPTY
-        heteronym['definitions'] += parse_defs(cells[11].value)
+    if col['notes'] < len(cells) and cells[col['notes']].ctype != 0:  #0: XL_CELL_EMPTY
+        heteronym['definitions'] += parse_defs(cell_text(col['notes']))
 
     for item in heteronym['definitions']:
         item['def'] = re.sub(ur'^\d+\.(.*)', ur'\1', item['def'])
 
     basic = dict(
-        stroke_count=int(cells[5].value),
-        non_radical_stroke_count=int(cells[4].value),
-        title=normalize(cells[2].value),
-        radical=normalize(cells[3].value),
+        stroke_count=cell_int(col['stroke_count']),
+        non_radical_stroke_count=cell_int(col['non_radical_stroke_count']),
+        title=cell_text(col['title']),
+        radical=cell_text(col['radical']),
     )
 
-    if int(cells[0].value) is 2: #字詞屬性 1表單字，2表複詞
+    if cell_int(col['term_type']) == 2: #字詞屬性 1表單字，2表複詞
         del basic['stroke_count']
         del basic['non_radical_stroke_count']
         del basic['radical']
