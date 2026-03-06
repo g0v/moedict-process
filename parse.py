@@ -84,9 +84,9 @@ def parse_def(text, definition):
 
 
 def parse_defs(detail):
-    detail = re.sub(ur'(\(.{1}\))\[([^倫]{1})\]([^\b\r\n])',r'[\2]\n\1\3', detail)
-    detail = re.sub(ur'([^\b\n\r])\[([^倫]{1})\]',r'\1\n[\2]', detail)
-    detail = re.sub(ur'\[([^倫]{1})\]([^\b\r\n])',r'[\1]\n\2', detail)
+    detail = re.sub(r'(\(.{1}\))\[([^倫]{1})\]([^\b\r\n])',r'[\2]\n\1\3', detail)
+    detail = re.sub(r'([^\b\n\r])\[([^倫]{1})\]',r'\1\n[\2]', detail)
+    detail = re.sub(r'\[([^倫]{1})\]([^\b\r\n])',r'[\1]\n\2', detail)
     lines = detail.splitlines()
     definitions = []
     pos = ''
@@ -95,7 +95,7 @@ def parse_defs(detail):
         if not item:
             continue
         logging.debug('def_item=%s' % item)
-        m = re.match(ur'\[(.*)\]', item)
+        m = re.match(r'\[(.*)\]', item)
         if m and m.group(1):
             pos = m.group(1)
             continue
@@ -119,7 +119,7 @@ def associate_to_defs(key, text, defs):
         defs.append({'def': u''})
 
     while text:
-        m = re.match(ur'^((?:\d+\.)*)(.*)', text)
+        m = re.match(r'^((?:\d+\.)*)(.*)', text)
         if not m:
             logging.error('bad syntax %s: %s' % (key, text))
             return
@@ -129,10 +129,10 @@ def associate_to_defs(key, text, defs):
         if m.group(1) == '':
             defs[0][key] = v
         else:
-            for num in re.findall(ur'(\d+)\.', m.group(1)):
+            for num in re.findall(r'(\d+)\.', m.group(1)):
                 idx = int(num)
                 for d in defs:
-                    m1 = re.match(ur'^(\d+)\.(.*)', d['def'])
+                    m1 = re.match(r'^(\d+)\.(.*)', d['def'])
                     if m1 and m1.group(1):
                         defIndex = int(m1.group(1))
                         if idx == defIndex:
@@ -207,7 +207,7 @@ def parse_heteronym(cells):
         heteronym['definitions'] += parse_defs(cell_text(col['notes']))
 
     for item in heteronym['definitions']:
-        item['def'] = re.sub(ur'^\d+\.(.*)', ur'\1', item['def'])
+        item['def'] = re.sub(r'^\d+\.(.*)', r'\1', item['def'])
 
     basic = dict(
         stroke_count=cell_int(col['stroke_count']),
@@ -312,8 +312,8 @@ def post_processing():
             if not h.get('bopomofo'):
                 continue
             for k in ('bopomofo', 'pinyin'):
-                if re.match(ur'^\([一二三四五六七八九十]\)', h[k]):
-                    h[k] = re.sub(ur'^\([一二三四五六七八九十]\)', '', h[k])
+                if re.match(r'^\([一二三四五六七八九十]\)', h[k]):
+                    h[k] = re.sub(r'^\([一二三四五六七八九十]\)', '', h[k])
             known_bpmf.add(h['bopomofo'])
 
         # remove <1> from definition
@@ -321,7 +321,7 @@ def post_processing():
             defs = h['definitions']
             defs_new = []
             for d in defs:
-                m = re.match(ur'^(\([一二三四五六七八九十]\))(.+)', d['def'])
+                m = re.match(r'^(\([一二三四五六七八九十]\))(.+)', d['def'])
                 if m and re.search(re_bpmf, m.group(2)):
                     # TODO verify consistency
                     continue
