@@ -6,3 +6,4 @@ venv
 .python-version
 dict-revised.json
 parse.log
+dict-revised.json.xz
