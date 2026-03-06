@@ -3,7 +3,8 @@ moedict-process
 
 Setup
 -----
-* Prerequirement: python, sqlite3
+
+* Prerequirement: python2, sqlite3
 
         $ pip install -r requirements.txt
 
