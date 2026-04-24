@@ -29,8 +29,24 @@ export function processXlsxFiles(paths: readonly string[]): ProcessResult {
 
   postProcess(map);
 
-  const entries = Array.from(map.values()).sort((a, b) => a.title.localeCompare(b.title));
+  const entries = Array.from(map.values()).sort((a, b) => codepointCompare(a.title, b.title));
   return { entries, filesSeen: paths.length, rowsParsed };
+}
+
+function codepointCompare(a: string, b: string): number {
+  // JS string comparison is UTF-16 code-unit based; Python's default sort is
+  // codepoint based. These differ for supplementary-plane chars (U+10000+)
+  // relative to BMP chars above the surrogate range (e.g. U+FA3E vs U+2000D).
+  let ai = 0;
+  let bi = 0;
+  while (ai < a.length && bi < b.length) {
+    const ac = a.codePointAt(ai)!;
+    const bc = b.codePointAt(bi)!;
+    if (ac !== bc) return ac - bc;
+    ai += ac > 0xffff ? 2 : 1;
+    bi += bc > 0xffff ? 2 : 1;
+  }
+  return (a.length - ai) - (b.length - bi);
 }
 
 export function collectXlsxFiles(dir: string): string[] {
@@ -48,8 +64,19 @@ export function collectXlsxFiles(dir: string): string[] {
   return results;
 }
 
-/** Mimic parse.py's json_dumps: indent=1 space, then convert each run of leading spaces to tabs. */
+/** Mimic parse.py's json_dumps: indent=1 space, sort_keys=True, tabs from leading spaces. */
 export function serializeDictionaryJson(entries: readonly DictionaryEntry[]): string {
-  const raw = JSON.stringify(entries, null, 1);
+  const raw = JSON.stringify(entries, sortedReplacer, 1);
   return raw.replace(/\n( +)/g, (_match, spaces: string) => `\n${'\t'.repeat(spaces.length)}`);
+}
+
+function sortedReplacer(_key: string, value: unknown): unknown {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const sorted: Record<string, unknown> = {};
+    for (const k of Object.keys(value as Record<string, unknown>).sort()) {
+      sorted[k] = (value as Record<string, unknown>)[k];
+    }
+    return sorted;
+  }
+  return value;
 }

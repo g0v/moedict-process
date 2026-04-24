@@ -74,6 +74,18 @@ describe('parseDefs', () => {
   it('returns an empty list for empty input', () => {
     expect(parseDefs('')).toEqual([]);
   });
+
+  it('preserves U+FEFF (BOM) in def text — parity with Python str.strip()', () => {
+    // JS String.prototype.trim() strips U+FEFF but Python str.strip() does not.
+    // We must not strip BOMs inside definitions or we change classification downstream.
+    const defs = parseDefs('﻿某義。﻿');
+    expect(defs[0]!.def).toBe('﻿某義。﻿');
+  });
+
+  it('strips ordinary whitespace (space, tab, newline) around a line', () => {
+    const defs = parseDefs('  \t某義。\n');
+    expect(defs[0]!.def).toBe('某義。');
+  });
 });
 
 describe('associateToDefs', () => {

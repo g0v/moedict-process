@@ -96,4 +96,47 @@ describe('serializeDictionaryJson', () => {
     expect(out).toContain('\n\t\t\t{');
     expect(out).not.toMatch(/\n {2,}/); // no literal multi-space indents leaked through
   });
+
+  it('sorts object keys alphabetically (parity with Python json.dumps(sort_keys=True))', () => {
+    const out = serializeDictionaryJson([{ title: '乙', heteronyms: [{ pinyin: 'yǐ', bopomofo: 'ㄧˇ' }] }]);
+    // "heteronyms" must appear before "title", and "bopomofo" before "pinyin"
+    expect(out.indexOf('heteronyms')).toBeLessThan(out.indexOf('title'));
+    expect(out.indexOf('bopomofo')).toBeLessThan(out.indexOf('pinyin'));
+  });
+});
+
+describe('processXlsxFiles — codepoint-based title sort (parity)', () => {
+  it('sorts by Unicode codepoint so BMP compat chars (U+FA3E) come before supplementary-plane chars (U+2000D)', async () => {
+    const XLSX = await import('xlsx');
+    const fs = await import('node:fs');
+    const os = await import('node:os');
+    const pathMod = await import('node:path');
+    XLSX.set_fs(fs);
+    const tmp = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'moedict-sort-'));
+    const file = pathMod.join(tmp, 'a.xlsx');
+    const header = new Array(18).fill('');
+    function row(title: string) {
+      const r = header.slice();
+      r[0] = title;
+      r[2] = 1;
+      r[4] = 'x';
+      r[5] = 1;
+      r[6] = 0;
+      r[8] = 'ㄎㄞˇ';
+      r[11] = 'kǎi';
+      r[15] = 'def';
+      return r;
+    }
+    const sheet = XLSX.utils.aoa_to_sheet([header, row('\u{FA3E}'), row('\u{2000D}'), row('慨')]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, sheet, 'Sheet1');
+    XLSX.writeFile(wb, file);
+
+    try {
+      const { entries } = processXlsxFiles([file]);
+      expect(entries.map((e) => e.title.codePointAt(0))).toEqual([0x6168, 0xfa3e, 0x2000d]);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
 });

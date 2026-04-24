@@ -18,6 +18,16 @@ const BOPOMOFO_CHARS = new Set(
   Array.from('˙ˇˊˋㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄧㄨㄩㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦ'),
 );
 
+const PYTHON_WS_CLASS =
+  '[\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]';
+const PYTHON_STRIP_LEADING = new RegExp(`^${PYTHON_WS_CLASS}+`, 'u');
+const PYTHON_STRIP_TRAILING = new RegExp(`${PYTHON_WS_CLASS}+$`, 'u');
+
+/** Mimic Python str.strip() — note it does NOT strip U+FEFF (BOM), unlike JS trim(). */
+function pythonStrip(input: string): string {
+  return input.replace(PYTHON_STRIP_LEADING, '').replace(PYTHON_STRIP_TRAILING, '');
+}
+
 function containsBopomofo(input: string): boolean {
   for (const ch of input) {
     if (BOPOMOFO_CHARS.has(ch)) return true;
@@ -79,7 +89,7 @@ export function parseDefs(detailRaw: string): Definition[] {
   const definitions: Definition[] = [];
   let pos = '';
   for (const raw of lines) {
-    const item = raw.trim();
+    const item = pythonStrip(raw);
     if (!item) continue;
 
     const typeMatch = TYPE_TAG_ONLY.exec(item);

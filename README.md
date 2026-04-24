@@ -74,6 +74,28 @@ Dedup behaviour — 花枝招展 bug
 鍵出現多次時，保留序列化後較長、內容較完整的那份。既有輕聲 / 非輕聲
 變體（同 `audio_id` 但 bopomofo 不同）不受影響。
 
+Parity with Python baseline
+--------------------------
+
+Bun/TS 版本已在真實 `dict_revised_1.xlsx`（2025 版，31MB）上跑過與 Python
+版本的逐條比對：
+
+| 指標 | 結果 |
+|------|------|
+| 條目總數 | **161,189** ≡ Python baseline |
+| 逐條完全相同 | **161,187 / 161,189**（99.9988%）|
+| 差異條目 | 2 — 都是刻意的 dedup 修正（「堅執」、「天瑞」）|
+
+為達成此 parity，TS 版本刻意比對 Python 的行為：
+
+- `JSON.stringify` 需手動 sort keys（Python `sort_keys=True`）
+- Array sort 需以 Unicode codepoint 比較，非 UTF-16 code unit
+  （`U+FA3E` 的相容漢字 vs `U+2000D` 等超平面字的排序會錯）
+- `parseDefs` 中的 line-strip 需用 Python 語義（**不**剝除 U+FEFF），
+  否則帶 BOM 的條目會被誤分類
+
+詳見 `src/process.ts::codepointCompare` 與 `src/parse.ts::pythonStrip`。
+
 Legacy Python implementation
 ----------------------------
 
