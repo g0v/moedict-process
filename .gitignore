@@ -5,5 +5,17 @@ venv
 .venv
 .python-version
 dict-revised.json
-parse.log
 dict-revised.json.xz
+dict-revised.json.bz2
+dict-revised.sqlite3
+dict-revised.sqlite3.bz2
+parse.log
+
+# Bun/TS
+node_modules/
+coverage/
+reports/
+.stryker-tmp/
+tsconfig.tsbuildinfo
+bun.lock.backup
+
