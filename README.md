@@ -29,7 +29,7 @@ cd ..
 Build
 -----
 
-產出 `dict-revised.json`：
+產出 `dict-revised.json.xz`：
 
 ```sh
 bun run parse
