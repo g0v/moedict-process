@@ -6,6 +6,8 @@ const config = {
     'src/parse.ts',
     'src/dedup.ts',
     'src/normalize.ts',
+    'src/excel.ts',
+    'src/process.ts',
   ],
   checkers: ['typescript'],
   tsconfigFile: 'tsconfig.json',

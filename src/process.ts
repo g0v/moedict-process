@@ -33,17 +33,24 @@ export function processXlsxFiles(paths: readonly string[]): ProcessResult {
   return { entries, filesSeen: paths.length, rowsParsed };
 }
 
-function codepointCompare(a: string, b: string): number {
-  // JS string comparison is UTF-16 code-unit based; Python's default sort is
-  // codepoint based. These differ for supplementary-plane chars (U+10000+)
-  // relative to BMP chars above the surrogate range (e.g. U+FA3E vs U+2000D).
+/**
+ * Compare two strings by Unicode codepoint (matches Python's default sort).
+ * JS's lexicographic comparison is UTF-16 code-unit based, which orders
+ * BMP chars above the surrogate range (e.g. U+FA3E) AFTER supplementary-plane
+ * chars (U+2000D) — wrong for parity with the Python baseline.
+ */
+export function codepointCompare(a: string, b: string): number {
   let ai = 0;
   let bi = 0;
   while (ai < a.length && bi < b.length) {
     const ac = a.codePointAt(ai)!;
     const bc = b.codePointAt(bi)!;
     if (ac !== bc) return ac - bc;
+    // Stryker disable next-line ConditionalExpression: `false` (always stride 1)
+    // is observationally equivalent — surrogate pairs are walked one code-unit
+    // at a time, but symmetric inputs reach the same comparison points.
     ai += ac > 0xffff ? 2 : 1;
+    // Stryker disable next-line ConditionalExpression: see above.
     bi += bc > 0xffff ? 2 : 1;
   }
   return (a.length - ai) - (b.length - bi);

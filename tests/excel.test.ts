@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { iterateSheetRows } from '../src/excel';
+import { cellTypeToCtype, iterateSheetRows } from '../src/excel';
 
 XLSX.set_fs(fs);
 
@@ -39,7 +39,7 @@ describe('iterateSheetRows', () => {
     expect(rows[0]![1]).toMatchObject({ value: 2, ctype: 1 });
   });
 
-  it('represents absent cells with ctype=0 to match xlrd semantics', () => {
+  it('represents absent cells with ctype=0 and value "" to match xlrd semantics', () => {
     const worksheet = XLSX.utils.aoa_to_sheet([['col1', 'col2'], ['甲']]);
     // Widen the declared range so B2 is iterable but not present as a cell.
     worksheet['!ref'] = 'A1:B2';
@@ -49,7 +49,7 @@ describe('iterateSheetRows', () => {
 
     const rows = Array.from(iterateSheetRows(xlsxPath));
     expect(rows).toHaveLength(1);
-    expect(rows[0]![1]!.ctype).toBe(0);
+    expect(rows[0]![1]).toEqual({ value: '', ctype: 0 });
   });
 
   it('returns an empty iterator if the workbook has no sheets with a !ref', () => {
@@ -58,5 +58,26 @@ describe('iterateSheetRows', () => {
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([]), 'Sheet1');
     XLSX.writeFile(workbook, empty);
     expect(Array.from(iterateSheetRows(empty))).toEqual([]);
+  });
+});
+
+describe('cellTypeToCtype', () => {
+  it('returns 0 for undefined cell type (cell missing from sheet)', () => {
+    expect(cellTypeToCtype(undefined)).toBe(0);
+  });
+
+  it("returns 0 for type 'z' (XLSX stub cell — present but valueless)", () => {
+    // xlrd's XL_CELL_EMPTY semantics: a stub cell contributes no value.
+    // Tests the second arm of the OR — without it, type-z cells would be
+    // misclassified as non-empty (ctype 1).
+    expect(cellTypeToCtype('z')).toBe(0);
+  });
+
+  it("returns 1 for non-empty cell types ('s', 'n', 'b', 'd', 'e')", () => {
+    expect(cellTypeToCtype('s')).toBe(1);
+    expect(cellTypeToCtype('n')).toBe(1);
+    expect(cellTypeToCtype('b')).toBe(1);
+    expect(cellTypeToCtype('d')).toBe(1);
+    expect(cellTypeToCtype('e')).toBe(1);
   });
 });

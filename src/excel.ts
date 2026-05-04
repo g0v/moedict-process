@@ -4,9 +4,10 @@ import type { SourceCell } from './types';
 
 XLSX.set_fs(fs);
 
-type CellType = 'b' | 'e' | 'n' | 's' | 'd' | 'z';
+export type CellType = 'b' | 'e' | 'n' | 's' | 'd' | 'z';
 
-function cellTypeToCtype(cellType: CellType | undefined): number {
+/** Map an XLSX cell type to xlrd's XL_CELL_EMPTY (0) / non-empty (1) classification. */
+export function cellTypeToCtype(cellType: CellType | undefined): number {
   return cellType === undefined || cellType === 'z' ? 0 : 1;
 }
 
