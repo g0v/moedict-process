@@ -18,9 +18,14 @@ const BOPOMOFO_CHARS = new Set(
   Array.from('˙ˇˊˋㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄧㄨㄩㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦ'),
 );
 
-const PYTHON_WS_CLASS =
-  '[\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]';
+// Empty class produces an invalid /^+/ regex that crashes at module load
+// (Stryker can't observe this through cached imports), and the 'u' flag has
+// no observable effect since the class contains only BMP escapes.
+// Stryker disable next-line StringLiteral
+const PYTHON_WS_CLASS = '[\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]';
+// Stryker disable next-line StringLiteral
 const PYTHON_STRIP_LEADING = new RegExp(`^${PYTHON_WS_CLASS}+`, 'u');
+// Stryker disable next-line StringLiteral
 const PYTHON_STRIP_TRAILING = new RegExp(`${PYTHON_WS_CLASS}+$`, 'u');
 
 /** Mimic Python str.strip() — note it does NOT strip U+FEFF (BOM), unlike JS trim(). */
@@ -76,6 +81,9 @@ const TYPE_TAG_AFTER_PHONETIC = /(\(.\))\[([^倫])\]([^\x08\r\n])/gu;
 const TYPE_TAG_AFTER_CHAR = /([^\x08\n\r])\[([^倫])\]/gu;
 const TYPE_TAG_BEFORE_CHAR = /\[([^倫])\]([^\x08\r\n])/gu;
 const TYPE_TAG_ONLY = /^\[(.*)\]$/u;
+// Stryker disable next-line Regex: `(.*)` → `(.)` is observationally equivalent
+// under .replace($1) — the unmatched tail of def stays put, so single-char vs
+// greedy capture both produce the same final string.
 const LEADING_NUMBERED = /^\d+\.(.*)/u;
 
 /** Break a raw multiline definitions string into structured Definition[]. */
@@ -107,6 +115,9 @@ export function parseDefs(detailRaw: string): Definition[] {
   return definitions;
 }
 
+// Stryker disable next-line Regex: removing `^` or `$` here is observationally
+// equivalent — exec() starts at position 0 on a non-global regex, and the
+// greedy `.*` already runs to end-of-string, so the anchors don't change captures.
 const SYNONYM_PREFIX = /^((?:\d+\.)*)(.*)$/u;
 const NUMBERED_INDEX = /(\d+)\./gu;
 
@@ -272,6 +283,10 @@ export function postProcess(entries: Map<string, DictionaryEntry>): void {
         if (match && containsBopomofo(match[2] ?? '')) return false;
         return true;
       });
+      // Stryker disable next-line ConditionalExpression: `if (true)` always
+      // assigns kept (a fresh array of the same items), which is
+      // observationally equivalent — content matches, only the array
+      // identity differs and no caller relies on it.
       if (kept.length !== defs.length) {
         heteronym.definitions = kept;
       }

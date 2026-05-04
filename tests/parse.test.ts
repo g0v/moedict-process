@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   associateToDefs,
   mergeRowIntoEntries,
@@ -53,6 +53,65 @@ describe('parseDef', () => {
     parseDef('開「但不關', def);
     expect(def.def).toBe('');
   });
+
+  it('rethrows non-UnbalancedBraces errors raised by splitSentence', async () => {
+    // Tests the `if (err instanceof UnbalancedBracesError)` guard: if mutated
+    // to `if (true)`, ANY error would be silently swallowed instead of just
+    // the expected one.
+    const semantic = await import('../src/semantic');
+    const spy = vi.spyOn(semantic, 'splitSentence').mockImplementation(() => {
+      throw new TypeError('unexpected');
+    });
+    try {
+      const def: Definition = { def: '' };
+      expect(() => parseDef('anything', def)).toThrow(TypeError);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('terminates without infinite loop when given empty input', () => {
+    // Tests the `classifies.length > 0` guard: with `>= 0`, the empty-array
+    // branch enters the loop, classifies[-1] is undefined, undefined !== 0
+    // is true, and we'd spin forever (caught only by Stryker timeout).
+    const def: Definition = { def: '' };
+    parseDef('', def);
+    expect(def.def).toBe('');
+  });
+
+  it('preserves def text intact when all sentences classify as type 0', () => {
+    // Tests `classifies.join('')`: with a sentinel like "Stryker was here!",
+    // the joined string would always contain a 0…0 pattern via interpolation,
+    // wrongly triggering the early-return that preserves the original def.
+    const def: Definition = { def: '' };
+    parseDef('某義。再義。', def);
+    expect(def.def).toBe('某義。再義。');
+    expect(def.example).toBeUndefined();
+  });
+
+  it('does not classify out-of-range sentences as link (cls === 3 specificity)', async () => {
+    // Tests `else if (cls === 3)`: a `true` mutant would treat ANY non-0/1/2
+    // class as a link. classifySentence's runtime return is always 0|1|2|3,
+    // so we mock it to return a sentinel and verify the branch is gated.
+    const semantic = await import('../src/semantic');
+    const spy = vi.spyOn(semantic, 'classifySentence').mockReturnValue(5 as never);
+    try {
+      const def: Definition = { def: '' };
+      parseDef('某。', def);
+      expect(def.link).toBeUndefined();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('keeps text intact for 0,1,1,0 interleaved patterns (multiple non-zero classes)', () => {
+    // Tests `0[^0]+0` (vs `0[^0]0`): the `+` quantifier matters when there
+    // are 2+ consecutive non-zero classifications. Two examples sandwiched
+    // between two definitions should still trigger early-return.
+    const def: Definition = { def: '' };
+    parseDef('某義。如：「A」。如：「B」。又義。', def);
+    expect(def.def).toBe('');
+  });
 });
 
 describe('parseDefs', () => {
@@ -86,6 +145,57 @@ describe('parseDefs', () => {
     const defs = parseDefs('  \t某義。\n');
     expect(defs[0]!.def).toBe('某義。');
   });
+
+  it('strips Python-equivalent whitespace classes (U+3000 ideographic, U+00A0 NBSP)', () => {
+    // Python's str.strip() treats these as whitespace; JS's String.prototype.trim()
+    // also handles U+3000 but the project's PYTHON_WS_CLASS pins the explicit set
+    // for parity. Mutating the class to "" produces an invalid /^+/ regex and
+    // breaks all stripping; mutating the regex template to '' would treat all
+    // strings as un-stripped.
+    expect(parseDefs('　某義。　')[0]!.def).toBe('某義。');
+    expect(parseDefs(' 某義。 ')[0]!.def).toBe('某義。');
+  });
+
+  it('strips trailing whitespace independently of leading whitespace', () => {
+    // Tests the trailing-strip replacement specifically: with mutant
+    // `replace(PYTHON_STRIP_TRAILING, "Stryker was here!")`, the trailing
+    // whitespace would be replaced by the sentinel rather than removed.
+    expect(parseDefs('某義。   ')[0]!.def).toBe('某義。');
+  });
+
+  it('extracts a multi-character [POS] tag (more than one char between brackets)', () => {
+    // Tests `(.*)` vs `(.)` capture in TYPE_TAG_ONLY: a 2+-char POS tag like
+    // [名動] would not be recognized under the single-char mutant.
+    const defs = parseDefs('[名動]\n主義。');
+    expect(defs).toEqual([{ def: '主義。', type: '名動' }]);
+  });
+
+  it('does not treat lines with mid-line [...] patterns as type-only markers', () => {
+    // The 倫 exclusion in pre-processing leaves '[倫]' un-split-out; the line
+    // arrives at TYPE_TAG_ONLY as 'abc[倫]'. Without the leading `^`, the
+    // mutant regex matches the trailing [倫] and misclassifies the whole
+    // line as a type marker, dropping the definition.
+    const defs = parseDefs('abc[倫]');
+    expect(defs).toEqual([{ def: 'abc[倫]' }]);
+  });
+
+  it('does not treat lines with extra content after [POS] as type-only markers', () => {
+    // Tests the trailing `$` anchor in TYPE_TAG_ONLY: '[倫]extra' must not be
+    // matched as a type tag (the 倫 exclusion blocks pre-processing from
+    // splitting it). Without `$`, the mutant would match `[倫]` at the start
+    // and lose the rest.
+    const defs = parseDefs('[倫]extra');
+    expect(defs).toEqual([{ def: '[倫]extra' }]);
+  });
+
+  it('leaves type undefined when a definition has no preceding [POS] marker', () => {
+    // Tests `let pos = ''` (initial value) and `if (pos)` (truthy guard): a
+    // non-empty initial value, or an `if (true)` mutation, would attach a
+    // bogus type to definitions that came before any [POS] tag.
+    const defs = parseDefs('主義。');
+    expect(defs).toEqual([{ def: '主義。' }]);
+    expect(defs[0]!.type).toBeUndefined();
+  });
 });
 
 describe('associateToDefs', () => {
@@ -112,6 +222,44 @@ describe('associateToDefs', () => {
   it('no-ops on empty text', () => {
     const defs: Definition[] = [{ def: 'a' }];
     associateToDefs('synonyms', '', defs);
+    expect(defs[0]!.synonyms).toBeUndefined();
+  });
+
+  it('does not push a placeholder when defs already has entries', () => {
+    // Tests `defs.length === 0` guard: with `true`, a placeholder {def:''}
+    // would be appended even when defs already has real entries, polluting
+    // the entry's definition list.
+    const defs: Definition[] = [{ def: 'A' }];
+    associateToDefs('synonyms', 'X、Y', defs);
+    expect(defs).toHaveLength(1);
+    expect(defs[0]!.synonyms).toBe('X,Y');
+  });
+
+  it('trims whitespace from the synonyms value', () => {
+    // Tests `.replace(/、/g, ',').trim()`: removing `.trim()` would leave
+    // surrounding whitespace from the source spreadsheet on the value.
+    const defs: Definition[] = [{ def: 'A' }];
+    associateToDefs('synonyms', '  X、Y  ', defs);
+    expect(defs[0]!.synonyms).toBe('X,Y');
+  });
+
+  it('attaches keyed synonyms to multi-digit numbered definitions (10+)', () => {
+    // Tests `\d+` (vs `\d`) in SYNONYM_PREFIX (line 110), NUMBERED_INDEX
+    // (line 111), and the per-def regex (line 141): single-digit-only
+    // mutants would fail to match '12.' / '12.A' and either lose the prefix
+    // or misalign the numbered index.
+    const defs: Definition[] = [{ def: '1.主義' }, { def: '12.次義' }];
+    associateToDefs('synonyms', '12.B、C', defs);
+    expect(defs[0]!.synonyms).toBeUndefined();
+    expect(defs[1]!.synonyms).toBe('B,C');
+  });
+
+  it('does not match numbered indices in the middle of def text', () => {
+    // Tests the `^` anchor on the per-def regex /^(\d+)\./: without it, any
+    // mid-text `N.` would falsely match and attach synonyms to a definition
+    // that doesn't start with a numbered index.
+    const defs: Definition[] = [{ def: '主義1.內文' }];
+    associateToDefs('synonyms', '1.A', defs);
     expect(defs[0]!.synonyms).toBeUndefined();
   });
 });
@@ -155,6 +303,9 @@ describe('parseHeteronym', () => {
     expect(basic.radical).toBeUndefined(); // term_type=2 (compound) strips these
     expect(basic.stroke_count).toBeUndefined();
     expect(heteronym.bopomofo).toBe('ㄏㄨㄚ ㄓ ㄓㄠ ㄓㄢˇ');
+    // Tests `if (heteronym.pinyin)` truthy-guard at trim time: a `false`
+    // mutant would drop pinyin from the trimmed heteronym entirely.
+    expect(heteronym.pinyin).toBe('huā zhī zhāo zhǎn');
     expect(heteronym.definitions).toHaveLength(1);
   });
 
@@ -178,6 +329,54 @@ describe('parseHeteronym', () => {
     const row = modernRow({ bopomofo: '', pinyin: '', definitions: '' });
     const { heteronym } = parseHeteronym(row);
     expect(heteronym).toEqual({});
+  });
+
+  it('strips multi-digit leading numbered prefix from each definition', () => {
+    // Tests the LEADING_NUMBERED loop (block + replacement string $1) and
+    // the regex `^\d+\.` against multi-digit and single-digit prefixes.
+    // Mutants that turn `\d+` into `\d` or `\D+`, replace `$1` with `''`,
+    // or remove the loop entirely would all leave the prefix in place.
+    const row = modernRow({ definitions: '1.主義。\n12.次義。' });
+    const { heteronym } = parseHeteronym(row);
+    expect(heteronym.definitions![0]!.def).toBe('主義。');
+    expect(heteronym.definitions![1]!.def).toBe('次義。');
+  });
+
+  it('returns 0 (fallback) when stroke_count cell value is non-numeric', () => {
+    // Tests `Number.isFinite(parsed)` guard in cellInt: a `true` mutant would
+    // return Math.trunc(NaN) = NaN, polluting the entry's stroke_count.
+    const row = modernRow({ term_type: 1, radical: '木', stroke_count: 'abc', non_radical_stroke_count: 4 });
+    const { basic } = parseHeteronym(row);
+    expect(basic.stroke_count).toBe(0);
+  });
+
+  it('parses string-typed numeric cell values via Number coercion', () => {
+    // Tests `Number.isFinite(parsed)` guard: a `false` mutant would skip the
+    // coerced-number return and fall through to the fallback, dropping
+    // stroke counts that the spreadsheet stored as text.
+    const row = modernRow({ term_type: 1, radical: '木', stroke_count: '8', non_radical_stroke_count: '4' });
+    const { basic } = parseHeteronym(row);
+    expect(basic.stroke_count).toBe(8);
+    expect(basic.non_radical_stroke_count).toBe(4);
+  });
+
+  it('does not strip mid-text "N." patterns from def text', () => {
+    // Tests the `^` anchor on LEADING_NUMBERED: without it, any digit-dot
+    // substring in the middle of a definition would be matched and mangled.
+    const row = modernRow({ definitions: '主義1.詳細' });
+    const { heteronym } = parseHeteronym(row);
+    expect(heteronym.definitions![0]!.def).toBe('主義1.詳細');
+  });
+
+  it('skips notes when notes cell ctype === 0 even if its value is non-empty', () => {
+    // Tests the `notesCell.ctype !== 0` half of the guard: with `true`, a
+    // ctype-0 stub cell that happens to carry text would still be parsed
+    // and appended, double-counting the data.
+    const row = modernRow({ definitions: '主義。' });
+    row[16] = { value: '附義。', ctype: 0 };
+    const { heteronym } = parseHeteronym(row);
+    expect(heteronym.definitions).toHaveLength(1);
+    expect(heteronym.definitions![0]!.def).toBe('主義。');
   });
 });
 
@@ -218,5 +417,85 @@ describe('postProcess', () => {
     expect(h.bopomofo).toBe('ㄚ');
     expect(h.pinyin).toBe('a');
     expect(h.definitions).toEqual([{ def: 'kept' }]);
+  });
+
+  it('does not strip (一)-like markers from the middle of bopomofo or pinyin', () => {
+    // Tests the `^` anchor on PHONETIC_INDEX: without it, a `(一)` sequence
+    // anywhere in the field would be stripped, mangling otherwise-valid text.
+    const entries = new Map<string, DictionaryEntry>();
+    entries.set('字', {
+      title: '字',
+      heteronyms: [{ bopomofo: '前(一)後', pinyin: 'pre(一)post', definitions: [{ def: 'kept' }] }],
+    });
+    postProcess(entries);
+    const h = entries.get('字')!.heteronyms[0]!;
+    expect(h.bopomofo).toBe('前(一)後');
+    expect(h.pinyin).toBe('pre(一)post');
+  });
+
+  it('does not filter definitions whose (一) marker sits in the middle of the def text', () => {
+    // Tests the `^` anchor on PHONETIC_INDEX_DEF: without it, any def with a
+    // mid-text `(N)又bopomofo` pattern would be incorrectly classified as a
+    // duplicate-phonetic entry and dropped.
+    const entries = new Map<string, DictionaryEntry>();
+    entries.set('字', {
+      title: '字',
+      heteronyms: [{
+        bopomofo: 'ㄚ',
+        definitions: [{ def: 'kept' }, { def: '前文(二)又ㄚ' }],
+      }],
+    });
+    postProcess(entries);
+    const h = entries.get('字')!.heteronyms[0]!;
+    expect(h.definitions).toHaveLength(2);
+    expect(h.definitions![1]!.def).toBe('前文(二)又ㄚ');
+  });
+
+  it('does not filter (一) defs whose body contains no bopomofo (containsBopomofo guard)', () => {
+    // Tests the `if (BOPOMOFO_CHARS.has(ch)) return true` inside containsBopomofo:
+    // an `if (true)` mutant would always claim the body has bopomofo and filter
+    // out source-only phonetic-index defs that legitimately carry plain prose.
+    const entries = new Map<string, DictionaryEntry>();
+    entries.set('字', {
+      title: '字',
+      heteronyms: [{
+        bopomofo: 'ㄚ',
+        definitions: [{ def: 'kept' }, { def: '(三)純文字無注音' }],
+      }],
+    });
+    postProcess(entries);
+    const h = entries.get('字')!.heteronyms[0]!;
+    expect(h.definitions).toHaveLength(2);
+    expect(h.definitions![1]!.def).toBe('(三)純文字無注音');
+  });
+
+  it('skips PHONETIC_INDEX stripping when bopomofo is absent', () => {
+    // Tests `if (!heteronym.bopomofo) continue`: with `if (false)`, a
+    // pinyin-only heteronym would have legitimate '(一)' content stripped
+    // even though it has no bopomofo to deduplicate against.
+    const entries = new Map<string, DictionaryEntry>();
+    entries.set('字', {
+      title: '字',
+      heteronyms: [{ pinyin: '(一)x', definitions: [{ def: 'kept' }] }],
+    });
+    postProcess(entries);
+    const h = entries.get('字')!.heteronyms[0]!;
+    expect(h.pinyin).toBe('(一)x');
+  });
+
+  it('sorts heteronyms within an entry by bopomofo (Python parity)', () => {
+    // Tests `heteronyms.sort(...)` on line 255: removing the .sort() call
+    // would leave heteronyms in source-input order, breaking Python parity.
+    const entries = new Map<string, DictionaryEntry>();
+    entries.set('字', {
+      title: '字',
+      heteronyms: [
+        { bopomofo: 'ㄈ', definitions: [{ def: 'F' }] },
+        { bopomofo: 'ㄅ', definitions: [{ def: 'B' }] },
+        { bopomofo: 'ㄉ', definitions: [{ def: 'D' }] },
+      ],
+    });
+    postProcess(entries);
+    expect(entries.get('字')!.heteronyms.map((h) => h.bopomofo)).toEqual(['ㄅ', 'ㄈ', 'ㄉ']);
   });
 });
