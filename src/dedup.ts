@@ -1,36 +1,55 @@
-import { collapseWhitespace } from './normalize';
-import type { Heteronym } from './types';
+export interface HeteronymLike {
+  id?: unknown;
+  bopomofo?: unknown;
+  pinyin?: unknown;
+  trs?: unknown;
+  audio_id?: unknown;
+}
 
-function phoneticIdentity(heteronym: Heteronym): string {
+function normalize(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  return String(value).replace(/\s+/gu, ' ').trim();
+}
+
+function phoneticIdentity(heteronym: HeteronymLike): string {
   return JSON.stringify({
-    bopomofo: collapseWhitespace(heteronym.bopomofo ?? ''),
-    pinyin: collapseWhitespace(heteronym.pinyin ?? ''),
+    audio_id: normalize(heteronym.audio_id),
+    bopomofo: normalize(heteronym.bopomofo),
+    pinyin: normalize(heteronym.pinyin),
+    trs: normalize(heteronym.trs),
+    id: normalize(heteronym.id),
   });
 }
 
-function hasIdentity(heteronym: Heteronym): boolean {
+function hasIdentity(heteronym: HeteronymLike): boolean {
   return Boolean(
-    collapseWhitespace(heteronym.bopomofo ?? '') ||
-      collapseWhitespace(heteronym.pinyin ?? ''),
+    normalize(heteronym.audio_id) ||
+      normalize(heteronym.bopomofo) ||
+      normalize(heteronym.pinyin) ||
+      normalize(heteronym.trs),
   );
 }
 
 /**
  * Deduplicate heteronyms that represent the same phonetic reading.
  *
- * Two heteronyms are considered the same reading when, after whitespace
- * normalization, their (bopomofo, pinyin) match. When duplicates are found,
- * the one with the richer JSON serialization is retained.
+ * Two heteronyms collide when their (audio_id, bopomofo, pinyin, trs, id)
+ * tuples match after whitespace normalization. When duplicates are found,
+ * the one with the richer JSON serialization is retained; on a tie, the
+ * earlier entry wins.
  *
- * This fixes a long-standing data bug (see 花枝招展 / moedict.tw) where the
- * source spreadsheet had the same reading encoded twice — once with ASCII
+ * Resolves a long-standing data bug (see 花枝招展 / moedict.tw) where the
+ * source spreadsheet encoded the same reading twice — once with ASCII
  * spaces and once with U+3000 ideographic spaces in the bopomofo column —
  * producing two nearly-identical heteronyms per entry.
  */
-export function dedupeHeteronyms(heteronyms: readonly Heteronym[]): Heteronym[] {
+export function dedupeHeteronyms<T extends HeteronymLike>(heteronyms: readonly T[]): T[] {
   const firstIndexByKey = new Map<string, number>();
-  const result: (Heteronym | null)[] = heteronyms.slice();
+  const result: (T | null)[] = heteronyms.slice();
 
+  // Stryker disable next-line EqualityOperator: i <= result.length runs one extra
+  // iteration where result[i] is undefined; the !heteronym guard short-circuits
+  // it to a no-op, so the off-by-one mutant is observationally equivalent.
   for (let i = 0; i < result.length; i++) {
     const heteronym = result[i];
     if (!heteronym || !hasIdentity(heteronym)) continue;
@@ -44,13 +63,13 @@ export function dedupeHeteronyms(heteronyms: readonly Heteronym[]): Heteronym[] 
     }
 
     const existing = result[firstIdx]!;
-    const currentSize = JSON.stringify(heteronym).length;
+    const contentSize = JSON.stringify(heteronym).length;
     const existingSize = JSON.stringify(existing).length;
-    if (currentSize > existingSize) {
+    if (contentSize > existingSize) {
       result[firstIdx] = heteronym;
     }
     result[i] = null;
   }
 
-  return result.filter((heteronym): heteronym is Heteronym => heteronym !== null);
+  return result.filter((heteronym): heteronym is T => heteronym !== null);
 }
