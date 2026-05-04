@@ -5,6 +5,24 @@ import {
   splitSentence,
 } from '../src/semantic';
 
+describe('UnbalancedBracesError', () => {
+  it('attaches the offending input to the error message', () => {
+    // Tests `super(\`unbalanced braces: ${input}\`)`: an empty-template
+    // mutant would lose the input context that callers rely on for debugging.
+    const err = new UnbalancedBracesError('開「但未關');
+    expect(err.message).toContain('unbalanced braces');
+    expect(err.message).toContain('開「但未關');
+  });
+
+  it('sets the error name so callers can identify it via instanceof + .name', () => {
+    // Tests `this.name = 'UnbalancedBracesError'`: an empty-string mutant
+    // would break Error logging that prints `${name}: ${message}` without
+    // the class identifier.
+    const err = new UnbalancedBracesError('x');
+    expect(err.name).toBe('UnbalancedBracesError');
+  });
+});
+
 describe('splitSentence', () => {
   it('splits the composite book citation example from sementic.py doctest', () => {
     const source =
@@ -55,6 +73,18 @@ describe('splitSentence', () => {
 
   it('returns an empty array for empty input', () => {
     expect(splitSentence('')).toEqual([]);
+  });
+
+  it('detects end-of-sentence on `:「..」` boundary even when the quote contains whitespace', () => {
+    // Tests `endsWithColonQuote = /：「[\s\S]*」$/.test(current)`: with the
+    // class mutated to `[\S\S]` (= `[\S]`), whitespace inside the quote
+    // breaks the match, so the quote isn't recognized as an end-marker and
+    // subsequent text gets glued into one over-long sentence.
+    expect(splitSentence('前。中：「has space」尾。')).toEqual([
+      '前。',
+      '中：「has space」',
+      '尾。',
+    ]);
   });
 });
 
@@ -110,5 +140,58 @@ describe('classifySentence', () => {
     expect(
       classifySentence('二虎指春秋魯國的大力士管莊子刺二虎的故事，典出戰國策˙秦策二。'),
     ).toBe(0);
+  });
+
+  describe('regex anchors require start-of-sentence (^ kills mid-text false positives)', () => {
+    // Each LINK_*/EXAMPLE_*/QUOTE pattern is anchored at `^`. Removing it
+    // would make any sentence with the pattern fragment mid-text classify
+    // as the wrong category. Test inputs prepend prose to the canonical
+    // pattern and assert the prose-only classification (0).
+    it('LINK_CITATION mid-text does not classify as link', () => {
+      expect(classifySentence('前文亦作「別名」。')).toBe(0);
+    });
+    it('LINK_SEE mid-text does not classify as link', () => {
+      expect(classifySentence('前文見「Y」條。')).toBe(0);
+    });
+    it('LINK_ARCHAIC mid-text does not classify as link', () => {
+      expect(classifySentence('前文「X」的古字。')).toBe(0);
+    });
+    it('LINK_VARIANT mid-text does not classify as link', () => {
+      expect(classifySentence('前文「X」的異體字（2）')).toBe(0);
+    });
+    it('EXAMPLE_WITH_PERIOD mid-text does not classify as example', () => {
+      expect(classifySentence('前文如：「示例」。')).toBe(0);
+    });
+    it('EXAMPLE_WITHOUT_PERIOD mid-text does not classify as example', () => {
+      // Trailing 'extra' breaks QUOTE_SOURCE_COLON_QUOTE's `$` anchor so it
+      // doesn't pre-empt this case as a quote (returning 2).
+      expect(classifySentence('前文如：「示例」extra')).toBe(0);
+    });
+    it('QUOTE_SOURCE_COLON_QUOTE leading char that `.` cannot match does not classify as quote', () => {
+      // Leading \n: `.` (no `s` flag) doesn't match \n, so original `^(.+?)`
+      // can't start matching. Without `^`, the regex engine retries from
+      // pos 1 onward and false-positives.
+      expect(classifySentence('\n某書：「內文」')).toBe(0);
+    });
+  });
+
+  it('LINK_VARIANT requires multi-digit index in （\\d+）', () => {
+    // Tests `\d+` (vs `\d`): `異體字（10）` (multi-digit) must still match.
+    // A single-digit mutant fails on '10' because after '1' the engine
+    // expects `）` but finds '0'.
+    expect(classifySentence('「X」的異體字（10）')).toBe(3);
+  });
+
+  it('LINK_SEE matches the no-等 form (見「X」條。)', () => {
+    // Tests `等?` (vs `等`): the optional 等 mutated to required would
+    // reject the bare 見「X」條。 form.
+    expect(classifySentence('見「X」條。')).toBe(3);
+  });
+
+  it('QUOTE_SOURCE_COLON_QUOTE requires the closing 」 at end-of-string', () => {
+    // Tests `$` anchor on QUOTE_SOURCE_COLON_QUOTE: with `$` removed, any
+    // trailing text after the closing 」 would still match and classify
+    // as quote (returning 2 instead of 0).
+    expect(classifySentence('某書：「內文」extra')).toBe(0);
   });
 });
