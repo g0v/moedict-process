@@ -8,6 +8,7 @@ const config = {
     'src/normalize.ts',
     'src/excel.ts',
     'src/process.ts',
+    'src/convert-to-sqlite.ts',
   ],
   checkers: ['typescript'],
   tsconfigFile: 'tsconfig.json',

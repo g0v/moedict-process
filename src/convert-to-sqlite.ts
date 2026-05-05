@@ -14,13 +14,18 @@ interface ExtendedEntry extends DictionaryEntry {
   translation?: Translations;
 }
 
-function insertRow(db: DB, table: string, row: Record<string, unknown>): number {
+export function insertRow(db: DB, table: string, row: Record<string, unknown>): number {
   const keys = Object.keys(row);
   if (keys.length === 0) throw new Error(`empty row for ${table}`);
   const columns = keys.join(',');
   const placeholders = keys.map(() => '?').join(',');
   const values = keys.map((key) => {
     const value = row[key];
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: this
+    // guard is defensive but observationally dead — better-sqlite3 already
+    // binds both `undefined` and `null` as SQL NULL on its own. Kept in
+    // case we ever swap SQLite drivers; only the boolean line below has
+    // real effect (better-sqlite3 throws on raw booleans).
     if (value === undefined || value === null) return null;
     if (typeof value === 'boolean') return value ? 1 : 0;
     return value as string | number | bigint;
