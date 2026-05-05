@@ -138,7 +138,7 @@ export function associateToDefs(key: 'synonyms' | 'antonyms', text: string, defs
   const match = SYNONYM_PREFIX.exec(text);
   if (!match) return;
 
-  const value = (match[2] ?? '').replace(/、/g, ',').trim();
+  const value = match[2]!.replace(/、/g, ',').trim();
 
   if (!match[1]) {
     defs[0]![key] = value;
@@ -280,7 +280,7 @@ export function postProcess(entries: Map<string, DictionaryEntry>): void {
       if (!defs) continue;
       const kept = defs.filter((def) => {
         const match = PHONETIC_INDEX_DEF.exec(def.def);
-        if (match && containsBopomofo(match[2] ?? '')) return false;
+        if (match && containsBopomofo(match[2]!)) return false;
         return true;
       });
       // Stryker disable next-line ConditionalExpression: `if (true)` always

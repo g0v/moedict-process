@@ -262,6 +262,17 @@ describe('associateToDefs', () => {
     associateToDefs('synonyms', '1.A', defs);
     expect(defs[0]!.synonyms).toBeUndefined();
   });
+
+  it('appends repeated synonym values when the same numbered index appears twice', () => {
+    // Tests the truthy template-literal branch
+    // `def[key] ? \`${def[key]},${value}\` : value`: an empty-template
+    // mutant would clobber the first assignment's value with "".
+    // Input '1.1.X' has match[1]='1.1.' (NUMBERED_INDEX matches '1.' twice,
+    // both yielding idx=1) and match[2]='X', so defs[0] gets assigned twice.
+    const defs: Definition[] = [{ def: '1.主義' }];
+    associateToDefs('synonyms', '1.1.X', defs);
+    expect(defs[0]!.synonyms).toBe('X,X');
+  });
 });
 
 describe('pickColumnMap', () => {
@@ -328,6 +339,29 @@ describe('parseHeteronym', () => {
   it('drops empty bopomofo/pinyin/definitions from heteronym', () => {
     const row = modernRow({ bopomofo: '', pinyin: '', definitions: '' });
     const { heteronym } = parseHeteronym(row);
+    expect(heteronym).toEqual({});
+  });
+
+  it('returns "" (not a sentinel) for out-of-range column indices in cellText', () => {
+    // Tests `if (!cell) return ''` inside cellText: a `'Stryker was here!'`
+    // mutant on the fallback would leak a phantom string into bopomofo/pinyin
+    // for any row that's shorter than the column map expects. We use a
+    // 6-cell legacy row so columns 6+ (bopomofo, pinyin, definitions...) are
+    // all out of range and exercise the missing-cell branch. With the
+    // original '' fallback those fields are empty strings and the trimmed
+    // heteronym drops them; with a sentinel fallback they'd be truthy and
+    // surface in the result.
+    const shortRow: SourceCell[] = [
+      cell(1),     // 0: term_type=1 (legacy)
+      empty(),     // 1
+      cell('短'),  // 2: title (legacy column 2)
+      empty(),     // 3
+      empty(),     // 4
+      empty(),     // 5
+      // No more cells — bopomofo (col 6), pinyin (7), definitions (10), notes (11) are out of range.
+    ];
+    const { basic, heteronym } = parseHeteronym(shortRow);
+    expect(basic.title).toBe('短');
     expect(heteronym).toEqual({});
   });
 
@@ -481,6 +515,33 @@ describe('postProcess', () => {
     postProcess(entries);
     const h = entries.get('字')!.heteronyms[0]!;
     expect(h.pinyin).toBe('(一)x');
+  });
+
+  it('treats missing bopomofo as empty string in the sort comparator', () => {
+    // Tests the two `?? ''` fallbacks inside `heteronyms.sort(...)`: a sentinel
+    // like 'Stryker was here!' sorts between 'A' and 'Z' (instead of before
+    // both like '' does), shifting the no-bopomofo entry's position. V8's
+    // insertion sort happens to call the comparator asymmetrically, so each
+    // input order only triggers one of the two `??` sites: [Z, NB, A] forces
+    // NB onto the b-side (kills col 78), [A, NB, Z] forces NB onto the a-side
+    // (kills col 46). Both arrangements should produce the same sorted output.
+    for (const input of [['Z', 'NB', 'A'], ['A', 'NB', 'Z']] as const) {
+      const entries = new Map<string, DictionaryEntry>();
+      entries.set('字', {
+        title: '字',
+        heteronyms: input.map((x) =>
+          x === 'NB'
+            ? { definitions: [{ def: 'NO_BOPO' }] }
+            : { bopomofo: x, definitions: [{ def: x }] },
+        ),
+      });
+      postProcess(entries);
+      expect(entries.get('字')!.heteronyms.map((h) => h.definitions![0]!.def)).toEqual([
+        'NO_BOPO',
+        'A',
+        'Z',
+      ]);
+    }
   });
 
   it('sorts heteronyms within an entry by bopomofo (Python parity)', () => {
