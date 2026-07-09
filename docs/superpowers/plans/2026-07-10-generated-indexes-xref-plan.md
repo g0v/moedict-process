@@ -124,7 +124,7 @@ it('writes Taiwanese sections with identity empty components', () => {
   writeFile('x-華語對照表.csv', '華語,詞條編號,詞條名稱\n同僚,2,同事\n同僚,3,同僚\n不存在,4,無\n');
   writeXrefs(input, out, new Set(['同僚']));
   expect(readJson(out, 'a/xref.json')).toEqual({ t: { 同僚: '同事,' } });
-  expect(readJson(out, 't/xref.json')).toEqual({ a: { 同事: '同僚', 同僚: '同僚' } });
+  expect(readJson(out, 't/xref.json')).toEqual({ a: { 同事: '同僚', 同僚: '' } });
 });
 it('normalizes Hakka WIP placeholder tokens before filtering and serializing', () => {
   writeFile('work-in-progress.json', JSON.stringify([{ 詞目: '【{[F305]}仔】', 對應華語: '我' }]));
@@ -139,7 +139,15 @@ it('writes Hakka M2H filtering and H2M autolinking asymmetrically', () => {
   expect(readJson(out, 'a/xref.json')).toEqual({ h: { 小孩: '細人仔' } });
   expect(readJson(out, 'h/xref.json')).toEqual({ a: { 細人仔: '`小孩~,兒童' } });
 });
+
+it('serializes same-title Hakka mappings as empty components in both directions', () => {
+  writeFile('work-in-progress.json', JSON.stringify([{ 詞目: '【小孩】', 對應華語: '小孩' }]));
+  writeXrefs(input, out, new Set(['小孩']));
+  expect(readJson(out, 'a/xref.json')).toEqual({ h: { 小孩: '' } });
+  expect(readJson(out, 'h/xref.json')).toEqual({ a: { 小孩: '' } });
+});
 ```
+
 
 - [ ] **Step 2: Run the focused test and verify RED**
 
