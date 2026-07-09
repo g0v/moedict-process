@@ -17,6 +17,10 @@ describe('firstCharCodeUnit', () => {
     expect(s.length).toBe(2);
     expect(firstCharCodeUnit(s)).toBe(s.charCodeAt(1) - 0xdc00);
   });
+  it('falls back to first code unit for an unpaired high surrogate (no NaN)', () => {
+    expect(firstCharCodeUnit('\uD800')).toBe(0xD800);
+    expect(firstCharCodeUnit('\uD800A')).toBe(0xD800);
+  });
 });
 
 describe('codepointCompare', () => {

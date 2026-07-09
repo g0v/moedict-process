@@ -94,6 +94,8 @@ export function expandPuaTokens(input: string): string {
 
 /** True for BMP and supplementary Private Use Areas. */
 export function isPuaCodePoint(cp: number): boolean {
+  //@ verify
+  //@ ensures \result === ((cp >= 0xE000 && cp <= 0xF8FF) || (cp >= 0xF0000 && cp <= 0xFFFFD) || (cp >= 0x100000 && cp <= 0x10FFFD))
   return (
     (cp >= 0xe000 && cp <= 0xf8ff) ||
     (cp >= 0xf0000 && cp <= 0xffffd) ||
@@ -103,14 +105,33 @@ export function isPuaCodePoint(cp: number): boolean {
 
 /** Collect distinct PUA codepoints in `text` (order of first appearance). */
 export function findPuaCodePoints(text: string): number[] {
-  const seen = new Set<number>();
-  const out: number[] = [];
-  for (const ch of text) {
-    const cp = ch.codePointAt(0)!;
-    if (isPuaCodePoint(cp) && !seen.has(cp)) {
-      seen.add(cp);
-      out.push(cp);
+  //@ verify
+  //@ requires text.length >= 0
+  //@ ensures forall(k, (0 <= k && k < \result.length) ==> ((\result[k] >= 0xE000 && \result[k] <= 0xF8FF) || (\result[k] >= 0xF0000 && \result[k] <= 0xFFFFD) || (\result[k] >= 0x100000 && \result[k] <= 0x10FFFD)))
+  //@ ensures forall(i, forall(j, (0 <= i && i < j && j < \result.length) ==> \result[i] !== \result[j]))
+  let seen: Set<number> = new Set<number>();
+  let out: number[] = [];
+  let i = 0;
+  while (i < text.length) {
+    //@ invariant 0 <= i && i <= text.length
+    //@ invariant forall(k, (0 <= k && k < out.length) ==> ((out[k] >= 0xE000 && out[k] <= 0xF8FF) || (out[k] >= 0xF0000 && out[k] <= 0xFFFFD) || (out[k] >= 0x100000 && out[k] <= 0x10FFFD)))
+    //@ invariant forall(a, forall(b, (0 <= a && a < b && b < out.length) ==> out[a] !== out[b]))
+    //@ invariant forall(k, (0 <= k && k < out.length) ==> seen.has(out[k]))
+    const c = text.charCodeAt(i);
+    let cp = c;
+    let stride = 1;
+    if (0xD800 <= c && c <= 0xDBFF && i + 1 < text.length) {
+      const low = text.charCodeAt(i + 1);
+      if (0xDC00 <= low && low <= 0xDFFF) {
+        cp = 0x10000 + (c - 0xD800) * 0x400 + (low - 0xDC00);
+        stride = 2;
+      }
     }
+    if (isPuaCodePoint(cp) && !seen.has(cp)) {
+      seen = seen.add(cp);
+      out = [...out, cp];
+    }
+    i += stride;
   }
   return out;
 }

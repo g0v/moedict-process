@@ -6,6 +6,10 @@ export type CellType = 'b' | 'e' | 'n' | 's' | 'd' | 'z';
 
 /** Map an XLSX cell type to empty (0) / non-empty (1) classification. */
 export function cellTypeToCtype(cellType: CellType | undefined): number {
+  //@ verify
+  //@ ensures \result === 0 || \result === 1
+  //@ ensures (cellType === undefined || cellType === 'z') ==> \result === 0
+  //@ ensures (cellType !== undefined && cellType !== 'z') ==> \result === 1
   return cellType === undefined || cellType === 'z' ? 0 : 1;
 }
 

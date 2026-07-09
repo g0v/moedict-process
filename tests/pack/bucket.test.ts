@@ -8,6 +8,11 @@ describe('bucketIndex', () => {
     const s = '𠀀';
     expect(bucketIndex(s, 'a')).toBe((s.charCodeAt(1) - 0xdc00) % 1024);
   });
+  it('returns a finite bucket for an unpaired high surrogate (no NaN)', () => {
+    const u = bucketIndex('\uD800', 'a');
+    expect(Number.isFinite(u)).toBe(true);
+    expect(u).toBe(0xD800 % 1024);
+  });
 });
 
 describe('filenameForTitle', () => {

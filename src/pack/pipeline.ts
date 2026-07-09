@@ -1,3 +1,5 @@
+//@ safe-slice
+
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -29,7 +31,10 @@ const WORKER_URL = new URL('./autolink-worker.ts', import.meta.url);
 
 export async function runPack(options: PackOptions): Promise<void> {
   const langs: Lang[] = options.lang === 'all' ? ['a', 't', 'h', 'c'] : [options.lang];
-  const concurrency = Math.max(1, options.concurrency ?? os.availableParallelism?.() ?? os.cpus().length);
+  const raw = options.concurrency ?? os.availableParallelism?.() ?? os.cpus().length;
+  // Normalize to a finite integer >= 1 so splitChunks' `parts >= 1` / integer
+  // precondition always holds at the runtime boundary (NaN/Infinity -> serial).
+  const concurrency = Math.max(1, Math.floor(Number.isFinite(raw) ? raw : 1));
   fs.mkdirSync(options.outputDir, { recursive: true });
 
   for (const lang of langs) {
@@ -81,6 +86,7 @@ async function packLang(
   const seen = new Set<string>();
   for (const entry of entriesForAutolink) {
     const title = entry.t;
+    if (title.length === 0) continue;
     if (isSkippedTitle(title)) continue;
     if (seen.has(title)) continue;
     seen.add(title);
@@ -158,11 +164,39 @@ async function autolinkParallel(
 }
 
 function splitChunks<T>(items: T[], parts: number): T[][] {
-  const n = Math.max(1, parts);
-  const size = Math.ceil(items.length / n);
+  //@ verify
+  //@ type T (==)
+  //@ requires items.length >= 0
+  //@ requires parts >= 1
+  //@ requires parts === Math.floor(parts)
+  //@ contract Contiguous non-overlapping slices covering `items` in order:
+  //@        with size = ceil(|items|/parts), chunk k is
+  //@        items[k*size .. min((k+1)*size, |items|)]. Flattening recovers items.
+  //@ ensures (items.length === 0 ==> \result.length === 0)
+  //@ ensures (items.length > 0 ==> (\result.length >= 1 && \result.length <= parts))
+  if (items.length === 0) {
+    return [];
+  }
+  // Integer ceil-div: ceil(L/n) == floor((L+n-1)/n) for n >= 1, L >= 0.
+  // Semantically identical to Math.ceil(items.length / parts) under parts >= 1.
+  const size = Math.floor((items.length + parts - 1) / parts);
   const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
+  let k = 0;
+  let start = 0;
+  while (start < items.length) {
+    //@ invariant 0 <= start && start <= items.length
+    //@ invariant 0 <= k && k === chunks.length
+    //@ invariant size >= 1
+    //@ invariant start === Math.min(k * size, items.length)
+    //@ invariant k <= parts
+    //@ decreases items.length - start
+    chunks.push(items.slice(start, start + size));
+    k = k + 1;
+    if (start + size >= items.length) {
+      start = items.length;
+    } else {
+      start = start + size;
+    }
   }
   return chunks;
 }
@@ -216,3 +250,5 @@ function loadGrokEntries(
   }
   return all;
 }
+
+export { splitChunks }

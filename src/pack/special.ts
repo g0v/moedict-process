@@ -111,30 +111,41 @@ export async function buildTwblgIndex(csvPath: string, outputPath: string): Prom
 
 /** Minimal RFC-style CSV row parser (handles quoted fields). */
 function parseCsvLine(line: string): string[] {
+  //@ verify
+  //@ requires line.length >= 0
+  //@ ensures \result.length >= 1
+  //@ ensures \result.length <= line.length + 1
+  //@ contract Splits on commas outside double-quoted regions; a doubled `"` inside a quoted field decodes to one `"`.
   const out: string[] = [];
   let cur = '';
   let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i]!;
+  let i = 0;
+  while (i < line.length) {
+    //@ invariant 0 <= i && i <= line.length
+    //@ invariant out.length <= i
+    //@ invariant out.length >= 0
+    let stride = 1;
+    const ch = line.charCodeAt(i);
     if (inQuotes) {
-      if (ch === '"') {
-        if (line[i + 1] === '"') {
+      if (ch === 34) {
+        if (i + 1 < line.length && line.charCodeAt(i + 1) === 34) {
           cur += '"';
-          i++;
+          stride = 2;
         } else {
           inQuotes = false;
         }
       } else {
-        cur += ch;
+        cur += line.slice(i, i + 1);
       }
-    } else if (ch === '"') {
+    } else if (ch === 34) {
       inQuotes = true;
-    } else if (ch === ',') {
+    } else if (ch === 44) {
       out.push(cur);
       cur = '';
     } else {
-      cur += ch;
+      cur += line.slice(i, i + 1);
     }
+    i = i + stride;
   }
   out.push(cur);
   return out;

@@ -24,6 +24,7 @@ self.onmessage = (event: MessageEvent<AutolinkJob>) => {
 
   for (const entry of entries) {
     const title = entry.t;
+    if (title.length === 0) continue;
     if (isSkippedTitle(title)) continue;
     if (seen.has(title)) continue;
     seen.add(title);
