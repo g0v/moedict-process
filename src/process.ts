@@ -1,4 +1,4 @@
-import * as fs from 'node:fs';
+import { existsSync } from 'node:fs';
 import * as path from 'node:path';
 import { iterateSheetRows } from './excel';
 import { mergeRowIntoEntries, parseHeteronym, postProcess } from './parse';
@@ -34,10 +34,10 @@ export function processXlsxFiles(paths: readonly string[]): ProcessResult {
 }
 
 /**
- * Compare two strings by Unicode codepoint (matches Python's default sort).
+ * Compare two strings by Unicode codepoint (stable dictionary order).
  * JS's lexicographic comparison is UTF-16 code-unit based, which orders
  * BMP chars above the surrogate range (e.g. U+FA3E) AFTER supplementary-plane
- * chars (U+2000D) — wrong for parity with the Python baseline.
+ * chars (U+2000D) — wrong for stable dictionary order.
  */
 export function codepointCompare(a: string, b: string): number {
   let ai = 0;
@@ -56,22 +56,24 @@ export function codepointCompare(a: string, b: string): number {
   return (a.length - ai) - (b.length - bi);
 }
 
-export function collectXlsxFiles(dir: string): string[] {
-  if (!fs.existsSync(dir)) return [];
-  const results: string[] = [];
-  function walk(current: string) {
-    const entries = fs.readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
-    for (const entry of entries) {
-      const full = path.join(current, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.isFile() && entry.name.toLowerCase().endsWith('.xlsx')) results.push(full);
-    }
-  }
-  walk(dir);
-  return results;
+/** Deterministic path order for collected .xlsx files. */
+export function sortXlsxPaths(paths: readonly string[]): string[] {
+  return [...paths].sort((a, b) => a.localeCompare(b));
 }
 
-/** Mimic parse.py's json_dumps: indent=1 space, sort_keys=True, tabs from leading spaces. */
+export function collectXlsxFiles(dir: string): string[] {
+  if (!existsSync(dir)) return [];
+  const results: string[] = [];
+  const glob = new Bun.Glob('**/*');
+  for (const rel of glob.scanSync({ cwd: dir, onlyFiles: true })) {
+    if (rel.toLowerCase().endsWith('.xlsx')) {
+      results.push(path.join(dir, rel));
+    }
+  }
+  return sortXlsxPaths(results);
+}
+
+/** indent=1 space, sorted object keys, leading spaces converted to tabs. */
 export function serializeDictionaryJson(entries: readonly DictionaryEntry[]): string {
   const raw = JSON.stringify(entries, sortedReplacer, 1);
   return raw.replace(/\n( +)/g, (_match, spaces: string) => `\n${'\t'.repeat(spaces.length)}`);

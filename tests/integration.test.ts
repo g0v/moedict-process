@@ -1,17 +1,15 @@
 import * as XLSX from 'xlsx';
-import Database from 'better-sqlite3';
+import { Database } from 'bun:sqlite';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { buildSqlite } from '../src/convert-to-sqlite';
 import { processXlsxFiles, serializeDictionaryJson } from '../src/process';
 
 XLSX.set_fs(fs);
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const SCHEMA_PATH = path.join(here, '..', 'dict-revised.schema');
+const SCHEMA_PATH = path.join(import.meta.dir, '..', 'dict-revised.schema');
 
 function modernRow(fields: {
   title: string;

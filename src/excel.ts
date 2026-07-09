@@ -1,19 +1,17 @@
-import * as fs from 'node:fs';
+import { readFileSync } from 'node:fs';
 import * as XLSX from 'xlsx';
 import type { SourceCell } from './types';
 
-XLSX.set_fs(fs);
-
 export type CellType = 'b' | 'e' | 'n' | 's' | 'd' | 'z';
 
-/** Map an XLSX cell type to xlrd's XL_CELL_EMPTY (0) / non-empty (1) classification. */
+/** Map an XLSX cell type to empty (0) / non-empty (1) classification. */
 export function cellTypeToCtype(cellType: CellType | undefined): number {
   return cellType === undefined || cellType === 'z' ? 0 : 1;
 }
 
 /** Iterate rows of the first sheet of an xlsx file, skipping the header row. */
 export function* iterateSheetRows(filePath: string): Generator<SourceCell[]> {
-  const workbook = XLSX.readFile(filePath);
+  const workbook = XLSX.read(readFileSync(filePath), { type: 'buffer' });
   const firstSheetName = workbook.SheetNames[0];
   if (!firstSheetName) return;
   const sheet = workbook.Sheets[firstSheetName];

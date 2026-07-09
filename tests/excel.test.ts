@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { cellTypeToCtype, iterateSheetRows } from '../src/excel';
 
 XLSX.set_fs(fs);
@@ -39,7 +39,7 @@ describe('iterateSheetRows', () => {
     expect(rows[0]![1]).toMatchObject({ value: 2, ctype: 1 });
   });
 
-  it('represents absent cells with ctype=0 and value "" to match xlrd semantics', () => {
+  it('represents absent cells with ctype=0 and value "" to match SheetJS empty-cell semantics', () => {
     const worksheet = XLSX.utils.aoa_to_sheet([['col1', 'col2'], ['甲']]);
     // Widen the declared range so B2 is iterable but not present as a cell.
     worksheet['!ref'] = 'A1:B2';
@@ -67,7 +67,7 @@ describe('cellTypeToCtype', () => {
   });
 
   it("returns 0 for type 'z' (XLSX stub cell — present but valueless)", () => {
-    // xlrd's XL_CELL_EMPTY semantics: a stub cell contributes no value.
+    // SheetJS empty-cell semantics: a stub cell contributes no value.
     // Tests the second arm of the OR — without it, type-z cells would be
     // misclassified as non-empty (ctype 1).
     expect(cellTypeToCtype('z')).toBe(0);

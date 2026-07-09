@@ -28,10 +28,10 @@ export interface DictionaryEntry extends BasicEntry {
 /** Term type from spreadsheet column "字詞屬性": 1=單字 (single char), 2=複詞 (compound word). */
 export type TermType = 1 | 2;
 
-/** A cell from the source spreadsheet, as exposed by SheetJS or xlrd. */
+/** A cell from the source spreadsheet, as exposed by SheetJS. */
 export interface SourceCell {
   value: unknown;
-  /** 0 = empty (xlrd XL_CELL_EMPTY semantics). */
+  /** 0 = empty / missing cell; 1 = present with a value. */
   ctype: number;
 }
 

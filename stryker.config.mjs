@@ -1,6 +1,9 @@
 /** @type {import('@stryker-mutator/api/core').PartialStrykerOptions} */
 const config = {
-  testRunner: 'vitest',
+  testRunner: 'command',
+  commandRunner: {
+    command: 'bun test',
+  },
   mutate: [
     'src/semantic.ts',
     'src/parse.ts',
@@ -12,10 +15,10 @@ const config = {
   ],
   checkers: ['typescript'],
   tsconfigFile: 'tsconfig.json',
-  coverageAnalysis: 'perTest',
+  coverageAnalysis: 'off',
   thresholds: { high: 85, low: 70, break: 65 },
   reporters: ['progress', 'clear-text', 'html'],
-  timeoutMS: 30000,
+  timeoutMS: 60000,
   concurrency: 4,
 };
 

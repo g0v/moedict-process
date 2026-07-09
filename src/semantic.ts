@@ -63,7 +63,7 @@ const LINK_VARIANT = /^「(.+?)」的異體字（\d+）/u;
 // Stryker disable next-line Regex: WITH_PERIOD is a strict subset of
 // EXAMPLE_WITHOUT_PERIOD's matches (any `如：「X」。` also matches `如：「X」`),
 // so any mutation here that doesn't break parsing produces the same return
-// via the OR fallback. Kept for parity with the Python source's two-step check.
+// via the OR fallback. Kept to preserve the original two-step check order.
 const EXAMPLE_WITH_PERIOD = /^如：「(.+)」。/u;
 const EXAMPLE_WITHOUT_PERIOD = /^如：「(.+)」/u;
 const QUOTE_SOURCE_COLON_QUOTE = /^(.+?)：「(.+?)」$/u;

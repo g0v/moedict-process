@@ -2,18 +2,15 @@ import * as XLSX from 'xlsx';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { codepointCompare, collectXlsxFiles, processXlsxFiles, serializeDictionaryJson } from '../src/process';
-
-let readdirReverse = false;
-vi.mock('node:fs', async (importActual) => {
-  const actual = await importActual<typeof import('node:fs')>();
-  const reversingReaddir: typeof actual.readdirSync = ((p: fs.PathLike, opts?: unknown) => {
-    const result = (actual.readdirSync as (p: fs.PathLike, o: unknown) => unknown)(p, opts);
-    return readdirReverse && Array.isArray(result) ? [...result].reverse() : result;
-  }) as typeof actual.readdirSync;
-  return { ...actual, default: actual, readdirSync: reversingReaddir };
-});
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
+import * as parseModule from '../src/parse';
+import {
+  codepointCompare,
+  collectXlsxFiles,
+  processXlsxFiles,
+  serializeDictionaryJson,
+  sortXlsxPaths,
+} from '../src/process';
 
 XLSX.set_fs(fs);
 
@@ -78,15 +75,14 @@ describe('processXlsxFiles', () => {
     expect(entries.map((e) => e.title)).toEqual(['有名字']);
   });
 
-  it('logs a warning and continues when parseHeteronym throws on a row', async () => {
+  it('logs a warning and continues when parseHeteronym throws on a row', () => {
     // Tests the catch-and-warn block: if either the catch body or the
     // file-path interpolation in the warn message is removed, errors
     // would be swallowed silently or lose actionable context.
-    const parseModule = await import('../src/parse');
-    const spy = vi.spyOn(parseModule, 'parseHeteronym').mockImplementation(() => {
+    const spy = spyOn(parseModule, 'parseHeteronym').mockImplementation(() => {
       throw new Error('boom');
     });
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const warn = spyOn(console, 'warn').mockImplementation(() => undefined);
     try {
       const a = path.join(tmpDir, 'broken.xlsx');
       writeXlsx(a, [headerRow(), row({ 0: 'whatever' })]);
@@ -102,12 +98,28 @@ describe('processXlsxFiles', () => {
   });
 });
 
+describe('sortXlsxPaths', () => {
+  it('sorts an intentionally unsorted path list with localeCompare', () => {
+    // Pure unit test: feed reverse order so sort must do real work, independent of FS readdir order.
+    const unsorted = [
+      path.join('sub', 'e.xlsx'),
+      path.join('sub', 'd.xlsx'),
+      'c.xlsx',
+      'b.xlsx',
+      'a.xlsx',
+    ];
+    expect(sortXlsxPaths(unsorted)).toEqual([
+      'a.xlsx',
+      'b.xlsx',
+      'c.xlsx',
+      path.join('sub', 'd.xlsx'),
+      path.join('sub', 'e.xlsx'),
+    ]);
+  });
+});
+
 describe('collectXlsxFiles', () => {
-  it('sorts entries by localeCompare even when fs.readdirSync returns unsorted', () => {
-    // macOS APFS happens to return readdirSync in alphabetical order for
-    // small directories, so writing in any order isn't enough to expose a
-    // missing .sort() — we reverse readdirSync's output via vi.mock to force
-    // sort to do real work.
+  it('collects nested .xlsx paths, excludes non-xlsx, and returns localeCompare order', () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'moedict-collect-'));
     try {
       fs.mkdirSync(path.join(tmp, 'sub'));
@@ -116,19 +128,14 @@ describe('collectXlsxFiles', () => {
       for (const name of ['a.xlsx', 'b.xlsx', 'c.xlsx', 'ignored.txt', 'sub/d.xlsx', 'sub/e.xlsx']) {
         fs.writeFileSync(path.join(tmp, name), '');
       }
-      readdirReverse = true;
-      try {
-        const files = collectXlsxFiles(tmp);
-        expect(files.map((f) => path.relative(tmp, f))).toEqual([
-          'a.xlsx',
-          'b.xlsx',
-          'c.xlsx',
-          path.join('sub', 'd.xlsx'),
-          path.join('sub', 'e.xlsx'),
-        ]);
-      } finally {
-        readdirReverse = false;
-      }
+      const files = collectXlsxFiles(tmp);
+      expect(files.map((f) => path.relative(tmp, f))).toEqual([
+        'a.xlsx',
+        'b.xlsx',
+        'c.xlsx',
+        path.join('sub', 'd.xlsx'),
+        path.join('sub', 'e.xlsx'),
+      ]);
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
@@ -181,8 +188,8 @@ describe('codepointCompare', () => {
     expect(codepointCompare('￿B', '￿A')).toBeGreaterThan(0);
   });
 
-  it('orders Python-codepoint-sort baseline: BMP-compat before supplementary-plane', () => {
-    // Python sorts by codepoint, so U+6168 (慨) < U+FA3E (compat) < U+2000D (supp).
+  it('orders codepoint-sort baseline: BMP-compat before supplementary-plane', () => {
+    // Historical codepoint order: U+6168 (慨) < U+FA3E (compat) < U+2000D (supp).
     // JS UTF-16 lex would mis-order the latter two.
     const sorted = ['慨', '\u{FA3E}', '\u{2000D}'].sort(codepointCompare);
     expect(sorted.map((c) => c.codePointAt(0))).toEqual([0x6168, 0xfa3e, 0x2000d]);
@@ -190,14 +197,14 @@ describe('codepointCompare', () => {
 });
 
 describe('serializeDictionaryJson', () => {
-  it('produces tab-indented JSON to match parse.py output', () => {
+  it('produces tab-indented JSON (historical dictionary dump format)', () => {
     const out = serializeDictionaryJson([{ title: '甲', heteronyms: [{ bopomofo: 'ㄐㄧㄚˇ' }] }]);
     expect(out).toContain('\n\t\t"title": "甲"');
     expect(out).toContain('\n\t\t\t{');
     expect(out).not.toMatch(/\n {2,}/); // no literal multi-space indents leaked through
   });
 
-  it('sorts object keys alphabetically (parity with Python json.dumps(sort_keys=True))', () => {
+  it('sorts object keys alphabetically (historical sorted-key dump order)', () => {
     const out = serializeDictionaryJson([{ title: '乙', heteronyms: [{ pinyin: 'yǐ', bopomofo: 'ㄧˇ' }] }]);
     // "heteronyms" must appear before "title", and "bopomofo" before "pinyin"
     expect(out.indexOf('heteronyms')).toBeLessThan(out.indexOf('title'));
@@ -206,16 +213,11 @@ describe('serializeDictionaryJson', () => {
 });
 
 describe('processXlsxFiles — codepoint-based title sort (parity)', () => {
-  it('sorts by Unicode codepoint so BMP compat chars (U+FA3E) come before supplementary-plane chars (U+2000D)', async () => {
-    const XLSX = await import('xlsx');
-    const fs = await import('node:fs');
-    const os = await import('node:os');
-    const pathMod = await import('node:path');
-    XLSX.set_fs(fs);
-    const tmp = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'moedict-sort-'));
-    const file = pathMod.join(tmp, 'a.xlsx');
+  it('sorts by Unicode codepoint so BMP compat chars (U+FA3E) come before supplementary-plane chars (U+2000D)', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'moedict-sort-'));
+    const file = path.join(tmp, 'a.xlsx');
     const header = new Array(18).fill('');
-    function row(title: string) {
+    function titleRow(title: string) {
       const r = header.slice();
       r[0] = title;
       r[2] = 1;
@@ -227,7 +229,7 @@ describe('processXlsxFiles — codepoint-based title sort (parity)', () => {
       r[15] = 'def';
       return r;
     }
-    const sheet = XLSX.utils.aoa_to_sheet([header, row('\u{FA3E}'), row('\u{2000D}'), row('慨')]);
+    const sheet = XLSX.utils.aoa_to_sheet([header, titleRow('\u{FA3E}'), titleRow('\u{2000D}'), titleRow('慨')]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, sheet, 'Sheet1');
     XLSX.writeFile(wb, file);

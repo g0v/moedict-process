@@ -17,7 +17,8 @@
   ],
   "keywords": [
     "dictionary",
-    "python",
+    "bun",
+    "typescript",
     "parser"
   ],
   "audience": [
@@ -39,4 +40,3 @@
   "needs": [
   ]
 }
-

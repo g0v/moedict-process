@@ -1,9 +1,5 @@
 Makefile.local
 dict_revised/
-*.pyc
-venv
-.venv
-.python-version
 dict-revised.json
 dict-revised.json.xz
 dict-revised.json.bz2
@@ -18,4 +14,3 @@ reports/
 .stryker-tmp/
 tsconfig.tsbuildinfo
 bun.lock.backup
-

@@ -26,5 +26,5 @@
       "~/*": ["src/*"]
     }
   },
-  "include": ["src/**/*", "tests/**/*", "stryker.config.mjs", "vitest.config.ts"]
+  "include": ["src/**/*", "tests/**/*", "stryker.config.mjs"]
 }

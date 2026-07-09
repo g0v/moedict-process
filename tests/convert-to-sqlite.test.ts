@@ -1,17 +1,15 @@
-import Database from 'better-sqlite3';
+import { Database } from 'bun:sqlite';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-const here = path.dirname(fileURLToPath(import.meta.url));
-const SCHEMA_PATH = path.join(here, '..', 'dict-revised.schema');
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import { buildSqlite, insertEntry, insertRow } from '../src/convert-to-sqlite';
 import type { DictionaryEntry } from '../src/types';
 
+const SCHEMA_PATH = path.join(import.meta.dir, '..', 'dict-revised.schema');
+
 describe('insertRow', () => {
-  let db: Database.Database;
+  let db: Database;
 
   beforeEach(() => {
     db = new Database(':memory:');
@@ -24,15 +22,14 @@ describe('insertRow', () => {
 
   it('throws when given an empty row (defensive guard)', () => {
     // Tests `if (keys.length === 0) throw`: an `if (false)` mutant would let
-    // the empty INSERT through, which better-sqlite3 would surface as a
-    // confusing "near ')'" syntax error far from the actual cause.
+    // the empty INSERT through, which bun:sqlite would surface as a
+    // confusing syntax error far from the actual cause.
     expect(() => insertRow(db, 't', {})).toThrow('empty row for t');
   });
 
   it('coerces undefined values to SQL NULL', () => {
     // Tests the `value === undefined` arm of the OR. A mutant that drops it
-    // would pass undefined to better-sqlite3, which throws "TypeError:
-    // SQLite3 can only bind numbers, strings, ...".
+    // would pass undefined through to the binding layer.
     insertRow(db, 't', { a: 'x', b: undefined, c: 'y' });
     const row = db.prepare('SELECT a, b, c FROM t').get() as { a: string; b: number | null; c: string };
     expect(row).toEqual({ a: 'x', b: null, c: 'y' });
@@ -45,9 +42,9 @@ describe('insertRow', () => {
     expect(row).toEqual({ a: 'x', b: null, c: 'y' });
   });
 
-  it('coerces boolean true → 1 and false → 0 (better-sqlite3 rejects raw booleans)', () => {
-    // Tests `if (typeof value === 'boolean') return value ? 1 : 0`. Without
-    // the guard, better-sqlite3 throws on raw boolean bindings.
+  it('coerces boolean true → 1 and false → 0 (explicit SQL surface)', () => {
+    // Tests `if (typeof value === 'boolean') return value ? 1 : 0`. bun:sqlite
+    // accepts booleans, but the coercion keeps the SQL surface explicit as 0/1.
     db.exec('CREATE TABLE bools (t INTEGER, f INTEGER)');
     insertRow(db, 'bools', { t: true, f: false });
     const row = db.prepare('SELECT t, f FROM bools').get() as { t: number; f: number };
@@ -56,7 +53,7 @@ describe('insertRow', () => {
 });
 
 describe('insertEntry', () => {
-  let db: Database.Database;
+  let db: Database;
 
   beforeEach(() => {
     db = new Database(':memory:');
@@ -153,7 +150,7 @@ describe('buildSqlite', () => {
   });
 
   it('deletes a pre-existing dbPath before writing (otherwise CREATE TABLE conflicts)', () => {
-    // Tests `if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath)`: with an
+    // Tests `if (existsSync(dbPath)) unlinkSync(dbPath)`: with an
     // `if (false)` mutant the existing schema would still be there and
     // `db.exec(schema)` would throw "table 'dicts' already exists".
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'moedict-prebuilt-'));
@@ -182,7 +179,7 @@ describe('buildSqlite', () => {
       const jsonPath = path.join(tmp, 'dict.json');
       const dbPath = path.join(tmp, 'dict.sqlite3');
       fs.writeFileSync(jsonPath, JSON.stringify([{ title: '甲', heteronyms: [] }]));
-      const closeSpy = vi.spyOn(Database.prototype, 'close');
+      const closeSpy = spyOn(Database.prototype, 'close');
       try {
         buildSqlite({ jsonPath, dbPath, schemaPath: SCHEMA_PATH });
         expect(closeSpy).toHaveBeenCalled();

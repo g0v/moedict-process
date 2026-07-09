@@ -2,13 +2,13 @@ moedict-process
 ===============
 
 教育部重編國語辭典資料處理。把官方 `.xlsx` 原檔轉成 JSON，再寫入 sqlite3。
-Bun / TypeScript implementation (see the legacy Python 2 port below).
+Bun / TypeScript implementation.
 
 Requirements
 ------------
 
 * [Bun](https://bun.com/) ≥ 1.3
-* 編譯 `better-sqlite3` 需要 Xcode Command Line Tools（macOS）或 build-essential（Linux）
+* Optional: `xz` on `PATH` if you want `dict-revised.json.xz` (skipped otherwise)
 
 ```sh
 bun install
@@ -33,12 +33,14 @@ Build
 
 ```sh
 bun run parse
+# or: make json
 ```
 
 產出 `dict-revised.sqlite3`：
 
 ```sh
 bun run to-sqlite
+# or: make db
 ```
 
 環境變數可覆寫預設路徑：
@@ -55,53 +57,36 @@ Tests & coverage
 ----------------
 
 ```sh
-bun run test            # vitest, all unit + integration
-bun run test:coverage   # v8 coverage report, thresholds: 90% stmts / 85% branches
-bun run stryker         # mutation testing (Stryker)
-bun run typecheck       # tsc strict
-bun run lint            # eslint
+bun test                 # bun:test, all unit + integration
+bun run test:coverage    # coverage report
+bun run stryker          # mutation testing (Stryker command runner → bun test)
+bun run typecheck        # tsc strict
+bun run lint             # eslint
 ```
 
 Dedup behaviour — 花枝招展 bug
 ----------------------------
 
-原本 `parse.py:post_processing()` 以 `json.dumps(h)` 做 heteronym 去重，碰到
-`b` 欄位一份 ASCII 空白、一份 U+3000 全形空白的雙胞胎條目時判定為不同，
-兩份都留下，導致下游 `moedict.tw` 同一詞條顯示兩次釋義（影響
-33,699 個詞彙，如「花枝招展」、「耀眼」、「退件」）。
+舊版以整份 heteronym 序列化字串做去重，碰到 `b` 欄位一份 ASCII 空白、一份
+U+3000 全形空白的雙胞胎條目時判定為不同，兩份都留下，導致下游 `moedict.tw`
+同一詞條顯示兩次釋義（影響 33,699 個詞彙，如「花枝招展」、「耀眼」、「退件」）。
 
-新版 `src/dedup.ts` 改以正規化後的 `(bopomofo, pinyin)` 做識別鍵；相同
-鍵出現多次時，保留序列化後較長、內容較完整的那份。既有輕聲 / 非輕聲
-變體（同 `audio_id` 但 bopomofo 不同）不受影響。
+`src/dedup.ts` 改以正規化後的 `(bopomofo, pinyin)` 做識別鍵；相同鍵出現多次時，
+保留序列化後較長、內容較完整的那份。既有輕聲 / 非輕聲變體（同 `audio_id` 但
+bopomofo 不同）不受影響。
 
-Parity with Python baseline
---------------------------
+Stable output conventions
+-------------------------
 
-Bun/TS 版本已在真實 `dict_revised_1.xlsx`（2025 版，31MB）上跑過與 Python
-版本的逐條比對：
+為保持字典 JSON 順序穩定，本實作固定：
 
-| 指標 | 結果 |
-|------|------|
-| 條目總數 | **161,189** ≡ Python baseline |
-| 逐條完全相同 | **161,187 / 161,189**（99.9988%）|
-| 差異條目 | 2 — 都是刻意的 dedup 修正（「堅執」、「天瑞」）|
-
-為達成此 parity，TS 版本刻意比對 Python 的行為：
-
-- `JSON.stringify` 需手動 sort keys（Python `sort_keys=True`）
-- Array sort 需以 Unicode codepoint 比較，非 UTF-16 code unit
+- `JSON.stringify` 手動 sort keys
+- Array / title sort 以 Unicode codepoint 比較，非 UTF-16 code unit
   （`U+FA3E` 的相容漢字 vs `U+2000D` 等超平面字的排序會錯）
-- `parseDefs` 中的 line-strip 需用 Python 語義（**不**剝除 U+FEFF），
+- `parseDefs` 的 line-strip **不**剝除 U+FEFF（與 `String.prototype.trim()` 不同），
   否則帶 BOM 的條目會被誤分類
 
-詳見 `src/process.ts::codepointCompare` 與 `src/parse.ts::pythonStrip`。
-
-Legacy Python implementation
-----------------------------
-
-舊版 Python 2 實作（`parse.py`、`sementic.py`、`convert_json_to_sqlite.py`）
-暫時保留在 repo 根目錄供對照；新的流程請用上面的 `bun run` 指令。待 TS 版
-驗證通過後會移除 Python 版本。
+詳見 `src/process.ts::codepointCompare` 與 `src/parse.ts::stripDefLine`。
 
 See also
 --------

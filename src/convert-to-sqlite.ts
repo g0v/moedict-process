@@ -1,8 +1,6 @@
-import Database from 'better-sqlite3';
-import * as fs from 'node:fs';
+import { Database } from 'bun:sqlite';
+import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 import type { DictionaryEntry, Heteronym, Definition } from './types';
-
-type DB = Database.Database;
 
 export const DICT_ID = 1;
 
@@ -14,18 +12,15 @@ interface ExtendedEntry extends DictionaryEntry {
   translation?: Translations;
 }
 
-export function insertRow(db: DB, table: string, row: Record<string, unknown>): number {
+export function insertRow(db: Database, table: string, row: Record<string, unknown>): number {
   const keys = Object.keys(row);
   if (keys.length === 0) throw new Error(`empty row for ${table}`);
   const columns = keys.join(',');
   const placeholders = keys.map(() => '?').join(',');
   const values = keys.map((key) => {
     const value = row[key];
-    // Stryker disable next-line ConditionalExpression,LogicalOperator: this
-    // guard is defensive but observationally dead — better-sqlite3 already
-    // binds both `undefined` and `null` as SQL NULL on its own. Kept in
-    // case we ever swap SQLite drivers; only the boolean line below has
-    // real effect (better-sqlite3 throws on raw booleans).
+    // Normalize nullish bindings and coerce booleans to 0/1. bun:sqlite already
+    // accepts both, but keeping this keeps the SQL surface explicit.
     if (value === undefined || value === null) return null;
     if (typeof value === 'boolean') return value ? 1 : 0;
     return value as string | number | bigint;
@@ -69,7 +64,7 @@ function buildDefinitionRow(definition: Definition, heteronymId: number, idx: nu
 }
 
 /** Insert one entry and its children. Returns the entry rowid. */
-export function insertEntry(db: DB, entry: ExtendedEntry): number {
+export function insertEntry(db: Database, entry: ExtendedEntry): number {
   const entryId = insertRow(db, 'entries', buildEntryRow(entry));
 
   for (let i = 0; i < entry.heteronyms.length; i++) {
@@ -102,14 +97,14 @@ export interface BuildSqliteOptions {
 }
 
 export function buildSqlite({ jsonPath, dbPath, schemaPath }: BuildSqliteOptions): { entryCount: number } {
-  if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+  if (existsSync(dbPath)) unlinkSync(dbPath);
 
   const db = new Database(dbPath);
   try {
-    const schema = fs.readFileSync(schemaPath, 'utf8');
+    const schema = readFileSync(schemaPath, 'utf8');
     db.exec(schema);
 
-    const entries = JSON.parse(fs.readFileSync(jsonPath, 'utf8')) as ExtendedEntry[];
+    const entries = JSON.parse(readFileSync(jsonPath, 'utf8')) as ExtendedEntry[];
     const insertMany = db.transaction((items: ExtendedEntry[]) => {
       for (const entry of items) {
         insertEntry(db, entry);

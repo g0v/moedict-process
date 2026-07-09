@@ -17,5 +17,5 @@ export default [
       'prefer-const': 'error',
     },
   },
-  { ignores: ['node_modules/**', 'coverage/**', 'reports/**', 'dict_revised/**', '*.py'] },
+  { ignores: ['node_modules/**', 'coverage/**', 'reports/**', 'dict_revised/**'] },
 ];

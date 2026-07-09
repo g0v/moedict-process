@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, spyOn } from 'bun:test';
 import {
   associateToDefs,
   mergeRowIntoEntries,
@@ -59,7 +59,7 @@ describe('parseDef', () => {
     // to `if (true)`, ANY error would be silently swallowed instead of just
     // the expected one.
     const semantic = await import('../src/semantic');
-    const spy = vi.spyOn(semantic, 'splitSentence').mockImplementation(() => {
+    const spy = spyOn(semantic, 'splitSentence').mockImplementation(() => {
       throw new TypeError('unexpected');
     });
     try {
@@ -94,7 +94,7 @@ describe('parseDef', () => {
     // class as a link. classifySentence's runtime return is always 0|1|2|3,
     // so we mock it to return a sentinel and verify the branch is gated.
     const semantic = await import('../src/semantic');
-    const spy = vi.spyOn(semantic, 'classifySentence').mockReturnValue(5 as never);
+    const spy = spyOn(semantic, 'classifySentence').mockReturnValue(5 as never);
     try {
       const def: Definition = { def: '' };
       parseDef('某。', def);
@@ -134,9 +134,9 @@ describe('parseDefs', () => {
     expect(parseDefs('')).toEqual([]);
   });
 
-  it('preserves U+FEFF (BOM) in def text — parity with Python str.strip()', () => {
-    // JS String.prototype.trim() strips U+FEFF but Python str.strip() does not.
-    // We must not strip BOMs inside definitions or we change classification downstream.
+  it('preserves U+FEFF (BOM) in def text — BOM/whitespace strip behavior', () => {
+    // JS String.prototype.trim() strips U+FEFF; our strip keeps BOM so
+    // definitions keep classification behavior stable.
     const defs = parseDefs('﻿某義。﻿');
     expect(defs[0]!.def).toBe('﻿某義。﻿');
   });
@@ -146,10 +146,9 @@ describe('parseDefs', () => {
     expect(defs[0]!.def).toBe('某義。');
   });
 
-  it('strips Python-equivalent whitespace classes (U+3000 ideographic, U+00A0 NBSP)', () => {
-    // Python's str.strip() treats these as whitespace; JS's String.prototype.trim()
-    // also handles U+3000 but the project's PYTHON_WS_CLASS pins the explicit set
-    // for parity. Mutating the class to "" produces an invalid /^+/ regex and
+  it('strips ideographic space and NBSP (U+3000, U+00A0) as whitespace', () => {
+    // stripDefLine pins an explicit whitespace class (U+3000, U+00A0, etc.).
+    // Mutating the class to "" produces an invalid /^+/ regex and
     // breaks all stripping; mutating the regex template to '' would treat all
     // strings as un-stripped.
     expect(parseDefs('　某義。　')[0]!.def).toBe('某義。');
@@ -158,7 +157,7 @@ describe('parseDefs', () => {
 
   it('strips trailing whitespace independently of leading whitespace', () => {
     // Tests the trailing-strip replacement specifically: with mutant
-    // `replace(PYTHON_STRIP_TRAILING, "Stryker was here!")`, the trailing
+    // `replace(STRIP_TRAILING, "Stryker was here!")`, the trailing
     // whitespace would be replaced by the sentinel rather than removed.
     expect(parseDefs('某義。   ')[0]!.def).toBe('某義。');
   });
@@ -544,9 +543,9 @@ describe('postProcess', () => {
     }
   });
 
-  it('sorts heteronyms within an entry by bopomofo (Python parity)', () => {
+  it('sorts heteronyms within an entry by bopomofo', () => {
     // Tests `heteronyms.sort(...)` on line 255: removing the .sort() call
-    // would leave heteronyms in source-input order, breaking Python parity.
+    // would leave heteronyms in source-input order.
     const entries = new Map<string, DictionaryEntry>();
     entries.set('字', {
       title: '字',

@@ -22,15 +22,15 @@ const BOPOMOFO_CHARS = new Set(
 // (Stryker can't observe this through cached imports), and the 'u' flag has
 // no observable effect since the class contains only BMP escapes.
 // Stryker disable next-line StringLiteral
-const PYTHON_WS_CLASS = '[\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]';
+const DEF_WS_CLASS = '[\\t\\n\\v\\f\\r \\u0085\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]';
 // Stryker disable next-line StringLiteral
-const PYTHON_STRIP_LEADING = new RegExp(`^${PYTHON_WS_CLASS}+`, 'u');
+const DEF_STRIP_LEADING = new RegExp(`^${DEF_WS_CLASS}+`, 'u');
 // Stryker disable next-line StringLiteral
-const PYTHON_STRIP_TRAILING = new RegExp(`${PYTHON_WS_CLASS}+$`, 'u');
+const DEF_STRIP_TRAILING = new RegExp(`${DEF_WS_CLASS}+$`, 'u');
 
-/** Mimic Python str.strip() — note it does NOT strip U+FEFF (BOM), unlike JS trim(). */
-function pythonStrip(input: string): string {
-  return input.replace(PYTHON_STRIP_LEADING, '').replace(PYTHON_STRIP_TRAILING, '');
+/** Strip definition-line whitespace without removing U+FEFF (BOM). JS trim() would. */
+function stripDefLine(input: string): string {
+  return input.replace(DEF_STRIP_LEADING, '').replace(DEF_STRIP_TRAILING, '');
 }
 
 function containsBopomofo(input: string): boolean {
@@ -97,7 +97,7 @@ export function parseDefs(detailRaw: string): Definition[] {
   const definitions: Definition[] = [];
   let pos = '';
   for (const raw of lines) {
-    const item = pythonStrip(raw);
+    const item = stripDefLine(raw);
     if (!item) continue;
 
     const typeMatch = TYPE_TAG_ONLY.exec(item);

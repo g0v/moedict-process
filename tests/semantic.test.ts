@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'bun:test';
 import {
   UnbalancedBracesError,
   classifySentence,
@@ -24,7 +24,7 @@ describe('UnbalancedBracesError', () => {
 });
 
 describe('splitSentence', () => {
-  it('splits the composite book citation example from sementic.py doctest', () => {
+  it('splits the composite book citation example', () => {
     const source =
       '架子，放置器物的木器。木架上分不同形狀的許多層小格，格內可放入各種器皿、用具。儒林外史˙第二十三回：「又走進去，大殿上{[8e50]}子倒的七橫八豎。」紅樓夢˙第八十五回：「麝月便走去在裡間屋裡{[8e50]}子上頭拿了來。」亦作「格子」、「{[8e50]}子」。';
     const parts = splitSentence(source);
