@@ -33,7 +33,7 @@ describe('expandPuaTokens', () => {
 });
 
 describe('IDS2UNI PUA-free Unihan map', () => {
-  it('maps all known IDS to assigned Unihan codepoints', () => {
+  it('maps IDS that appear in latest a/c/t/h packs', () => {
     expect(IDS2UNI['⿰𧾷百']).toBe('𬦰');
     expect('𬦰'.codePointAt(0)).toBe(0x2c9b0);
     expect(IDS2UNI['⿰𧾷百']).not.toBe('𬦀'); // not near-neighbor U+2C980
@@ -47,8 +47,9 @@ describe('IDS2UNI PUA-free Unihan map', () => {
     expect(IDS2UNI['⿰虫念']).toBe('𬠖');
     expect('𬠖'.codePointAt(0)).toBe(0x2c816);
 
-    expect(IDS2UNI['⿺皮卜']).toBe('𱱿');
-    expect('𱱿'.codePointAt(0)).toBe(0x31c7f);
+    // absent from latest packs — do not keep dead maps
+    expect(IDS2UNI['⿺皮卜']).toBeUndefined();
+    expect(IDS2UNI['⿰金四']).toBeUndefined();
   });
 
   it('emits no PUA codepoints', () => {
@@ -58,16 +59,15 @@ describe('IDS2UNI PUA-free Unihan map', () => {
     }
   });
 
-  it('grokJson rewrites all five IDS titles', () => {
+  it('grokJson rewrites live IDS titles', () => {
     const raw = JSON.stringify([
       { title: '⿰𧾷百', heteronyms: [] },
       { title: '⿸疒哥', heteronyms: [] },
       { title: '⿰亻恩', heteronyms: [] },
       { title: '⿰虫念', heteronyms: [] },
-      { title: '⿺皮卜', heteronyms: [] },
     ]);
     const entries = grokJson(raw, IDS2UNI);
-    expect(entries.map((e) => e.t)).toEqual(['𬦰', '𰣻', '𫣆', '𬠖', '𱱿']);
+    expect(entries.map((e) => e.t)).toEqual(['𬦰', '𰣻', '𫣆', '𬠖']);
   });
 });
 

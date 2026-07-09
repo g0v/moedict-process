@@ -120,9 +120,10 @@ property tests and golden-output regression tests:
    `dict-concised.audio.json`. Raw `dict-revised.json` packs without those fields.
 5. **PUA-free processed data (policy)** — pack output must not contain Private
    Use Area codepoints. Two layers:
-   - **`IDS2UNI`** maps known IDS to assigned Unihan (shared by prefix+autolink):
-     `⿰𧾷百`→U+2C9B0 𬦰, `⿸疒哥`→U+308FB 𰣻, `⿰亻恩`→U+2B8C6 𫣆,
-     `⿰虫念`→U+2C816 𬠖, `⿺皮卜`→U+31C7F 𱱿.
+   - **`IDS2UNI`** maps only IDS that still appear (as IDS or Unihan) in latest
+     a/c/t/h packs: `⿰𧾷百`→U+2C9B0 𬦰, `⿸疒哥`→U+308FB 𰣻,
+     `⿰亻恩`→U+2B8C6 𫣆, `⿰虫念`→U+2C816 𬠖. Dropped when absent from shipped
+     data (e.g. `⿺皮卜`/`𱱿`, `⿰金四`/`𳅵`).
    - **`assertNoPua`** runs on every pack output surface: entry payloads before
      `PackWriter.writeEntry`, special `@/=` payloads before `pack/@.txt`/`=.txt`,
      category files, twblg `index.json`, and intermediate

@@ -37,23 +37,23 @@ export function minifyKeys(json: string): string {
 }
 
 /**
- * IDS → assigned Unihan codepoints for moedict processed data.
- * Goal: PUA-free output. Font coverage is a render-side concern.
+ * IDS → assigned Unihan for glyphs that still appear in latest a/c/t/h packs.
+ * Dropped when neither the IDS nor its Unihan form is present in shipped data.
+ * Font coverage is render-side.
  *
- *   ⿰𧾷百 → U+2C9B0 𬦰 (Ext E; not near-neighbor U+2C980 𬦀)
- *   ⿸疒哥 → U+308FB 𰣻 (Ext G)
- *   ⿰亻恩 → U+2B8C6 𫣆 (Ext C)
- *   ⿰虫念 → U+2C816 𬠖 (Ext E)
- *   ⿺皮卜 → U+31C7F 𱱿 (Ext H; 皮+卜, TB-723F — not U+31C7E 𱱾)
+ * Live in packs (2026-07-09 scan of moedict.tw data/dictionary):
+ *   ⿰𧾷百 → U+2C9B0 𬦰 (Ext E; buckets/index)
+ *   ⿸疒哥 → U+308FB 𰣻 (Ext G; IDS still in xref/variants, Unihan in buckets)
+ *   ⿰亻恩 → U+2B8C6 𫣆 (Ext C; buckets/index)
+ *   ⿰虫念 → U+2C816 𬠖 (Ext E; h/phck)
  *
- * Prefix and autolink stages share this map (legacy dual PUA maps collapsed).
+ * Not in latest packs (dropped): ⿺皮卜/𱱿, ⿰金四/𳅵, other sym.txt IDS leftovers.
  */
 export const IDS2UNI: Record<string, string> = {
   '⿰𧾷百': '𬦰',
   '⿸疒哥': '𰣻',
   '⿰亻恩': '𫣆',
   '⿰虫念': '𬠖',
-  '⿺皮卜': '𱱿',
 };
 
 export function grokJson(raw: string, idsMap: Record<string, string> = IDS2UNI): GrokEntry[] {
