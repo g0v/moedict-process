@@ -56,17 +56,10 @@ function diffLines(expected: string, actual: string): string {
 
 function shouldSkipManifestPath(rel: string): string | null {
   const base = path.basename(rel);
-  // The core pipeline does not yet generate Mandarin/Hakka index metadata or
-  // any of the three legacy xref directions. Exact paths keep generated
-  // Taiwanese index metadata comparable.
-  if (
-    rel === 'a/index.json' ||
-    rel === 'a/xref.json' ||
-    rel === 'h/index.json' ||
-    rel === 'h/xref.json' ||
-    rel === 't/xref.json'
-  ) {
-    return 'legacy index/xref metadata not produced by current pack pipeline';
+  // Cross-language correspondence side inputs are not yet wired. Exact paths
+  // keep generated Mandarin, Taiwanese, and Hakka indexes comparable.
+  if (rel === 'a/xref.json' || rel === 'h/xref.json' || rel === 't/xref.json') {
+    return 'legacy xref metadata not produced by current pack pipeline';
   }
   // Special entry JSONs are inputs to special2pack, not pack outputs of runPack(a).
   if (base.startsWith('@') || base.startsWith('=')) {
@@ -132,12 +125,11 @@ const packInput = process.env.MOEDICT_PACK_INPUT;
 const hasPackInput =
   !!packInput && fs.existsSync(path.join(packInput, 'dict-revised.json'));
 const goldenIt = hasPackInput ? it : it.skip;
-
 describe('golden manifest skip policy', () => {
   it('skips only metadata outputs the core pipeline does not generate', () => {
-    expect(shouldSkipManifestPath('a/index.json')).not.toBeNull();
+    expect(shouldSkipManifestPath('a/index.json')).toBeNull();
     expect(shouldSkipManifestPath('a/xref.json')).not.toBeNull();
-    expect(shouldSkipManifestPath('h/index.json')).not.toBeNull();
+    expect(shouldSkipManifestPath('h/index.json')).toBeNull();
     expect(shouldSkipManifestPath('h/xref.json')).not.toBeNull();
     expect(shouldSkipManifestPath('t/index.json')).toBeNull();
     expect(shouldSkipManifestPath('t/xref.json')).not.toBeNull();

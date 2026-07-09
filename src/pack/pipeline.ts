@@ -18,6 +18,7 @@ import { PackWriter } from './io';
 import { bucketIndex, isSkippedTitle } from './bucket';
 import { cLocaleCompare, canonicalJson } from './serializer';
 import { buildSpecialPacks, buildTwblgIndex, buildCategoryFiles } from './special';
+import { writeGeneratedIndex } from './index';
 
 export interface PackOptions {
   lang: Lang | 'all';
@@ -115,6 +116,7 @@ async function packLang(
   lines.sort(cLocaleCompare);
 
   const writer = new PackWriter(outputDir);
+  const acceptedTitles: string[] = [];
   for (const line of lines) {
     const match = line.match(/^(\d+) (\S+) (.+)$/);
     if (!match) throw new Error(`malformed autolink line: ${line.slice(0, 80)}`);
@@ -130,9 +132,13 @@ async function packLang(
       expandedPayload,
       `lang=${lang} title=${fileTitle || bucketTitle}`,
     );
-    writer.writeEntry(lang, bucket, bucketTitle, fileTitle, expandedPayload);
+    const acceptedTitle = writer.writeEntry(lang, bucket, bucketTitle, fileTitle, expandedPayload);
+    if (acceptedTitle !== null) acceptedTitles.push(acceptedTitle);
   }
   writer.finalize();
+  if (lang === 'a' || lang === 'h') {
+    writeGeneratedIndex(lang, acceptedTitles, outputDir);
+  }
   buildSpecialPacks(lang, outputDir);
   if (lang === 't') {
     const csvPath = path.join(inputDir, 'moedict-data-twblg/uni/詞目總檔.csv');

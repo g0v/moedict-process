@@ -26,13 +26,13 @@ export class PackWriter {
     bucketTitle: string,
     fileTitle: string,
     payload: string,
-  ): void {
+  ): string | null {
     let acceptor = this.acceptors.get(lang);
     if (!acceptor) {
       acceptor = new FileTitleAcceptor();
       this.acceptors.set(lang, acceptor);
     }
-    if (!acceptor.acceptFileTitle(fileTitle)) return;
+    if (!acceptor.acceptFileTitle(fileTitle)) return null;
 
     const filename = filenameForTitle(fileTitle);
     const langDir = path.join(this.outputDir, lang);
@@ -45,6 +45,7 @@ export class PackWriter {
     const key = `${lang}:${bucket}`;
     if (!this.prepack.has(key)) this.prepack.set(key, []);
     this.prepack.get(key)!.push(`\n,"${bucketTitle}":${processedPayload}`);
+    return fileTitle;
   }
 
   finalize(): void {

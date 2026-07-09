@@ -31,8 +31,9 @@ Each directory contains its source-defined subset of:
   and `~` removed. Files containing IDS characters (`⿰⿸⿺`) or duplicate NFD
   filenames are skipped by the writer.
 - `index.json` — a language index where that language's source provides one.
-  The legacy Mandarin and Hakka index files are separately versioned metadata,
-  not outputs of the historical pack commands.
+  The core pipeline generates Mandarin and Hakka indexes from accepted emitted
+  titles in deterministic Unicode scalar order; Taiwanese retains its source
+  CSV-driven index generator.
 - `xref.json` — cross-language mapping, shipped for Mandarin, Taiwanese, and
   Hakka. Its correspondence records are not part of dictionary entries.
 - `=<category>.json` — Mandarin category list files.
@@ -118,12 +119,10 @@ property tests and golden-output regression tests:
 
 ## Known differences from legacy output
 
-1. **`a/index.json`, `a/xref.json`, `h/index.json`, `h/xref.json`, and
-   `t/xref.json`** — not yet produced by `bun run pack`. The legacy Mandarin
-   and Hakka index files were separately versioned artifacts. Mandarin/Taiwanese
-   xref requires `x-華語對照表.csv`; Hakka xref requires historical
-   `work-in-progress.json`. Golden tests skip only these exact paths until
-   their source-driven generators are ported.
+1. **`a/xref.json`, `h/xref.json`, and `t/xref.json`** — not yet produced by
+   `bun run pack`. Mandarin/Taiwanese xref requires `x-華語對照表.csv`; Hakka
+   xref requires historical `work-in-progress.json`. Golden tests skip only
+   these exact paths until their source-driven generators are ported.
 2. **Special `@*.json` / `=*.json` entry files** under `a/` — these are inputs to
    `special2pack` (and category dumps), not outputs of the core pack run. The
    pipeline writes aggregated `pack/@.txt` and `pack/=.txt` when those inputs
