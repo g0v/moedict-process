@@ -42,8 +42,8 @@
 
 ```ts
 it('writes sorted unique Unicode-scalar titles', () => {
-  writeGeneratedIndex('a', ['𠮷', '乙', '甲', '甲'], out);
-  expect(readJson(out, 'a/index.json')).toEqual(['乙', '甲', '𠮷']);
+  writeGeneratedIndex('a', ['𠮷', '乙', '甲', '𐀀', '�', '甲'], out);
+  expect(readJson(out, 'a/index.json')).toEqual(['乙', '甲', '�', '𐀀', '𠮷']);
 });
 
 it('rejects only uncurated PUA and retains approved MOE variants', () => {
