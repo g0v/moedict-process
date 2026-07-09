@@ -22,7 +22,7 @@ Source data
 ```sh
 mkdir dict_revised
 cd dict_revised
-wget https://raw.githubusercontent.com/g0v/moedict-data/master/dict_revised/dict_revised_1.xlsx
+wget https://raw.githubusercontent.com/g0v/moedict-data/main/dict_revised/dict_revised_1.xlsx
 cd ..
 ```
 
@@ -91,7 +91,7 @@ Stable output conventions
 See also
 --------
 
-* Data source: https://github.com/g0v/moedict-data/tree/master/dict_revised
+* Data source: https://github.com/g0v/moedict-data/tree/main/dict_revised
 * Project site: http://3du.tw/ ( https://g0v.hackpad.tw/3du.tw-ZNwaun62BP4 )
 * Bug tracker: https://github.com/g0v/moedict-process/issues
 * Slack: g0v-tw #moedict <https://app.slack.com/client/T02G2SXKM/C8DEZ566S>
