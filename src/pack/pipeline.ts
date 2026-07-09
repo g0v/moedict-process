@@ -59,6 +59,46 @@ async function packLang(
   const entriesForPrefix = loadGrokEntries(lang, inputDir, IDS2UNI);
   const entriesForAutolink = loadGrokEntries(lang, inputDir, IDS2UNI);
 
+  // Mandarin audio injection (legacy autolink.ls lines 6-11, 84-90).
+  // The legacy audio-map is preprocessed: keys get （...）stripped to ., ，
+  // removed, （.*） suffix removed; a second bare-title key is also added.
+  // The loop `break`s on the first heteronym without b (not continue).
+  // title is stripped of (...) / （...） suffix (English) before audio lookup.
+  const audioMap = loadAudioMap(lang, inputDir);
+  if (audioMap) {
+    for (const entry of entriesForAutolink) {
+      let title = entry.t;
+      const heteronyms = entry.h as Array<Record<string, unknown>> | undefined;
+      if (!heteronyms) continue;
+      // Strip English paren suffix from title (legacy lines 79-83).
+      let englishIndex = title.indexOf('(');
+      if (englishIndex < 0) englishIndex = title.indexOf('（');
+      if (englishIndex >= 0) {
+        entry.english = title.slice(englishIndex + 1, -1);
+        title = title.slice(0, englishIndex);
+      }
+      for (let i = 0; i < heteronyms.length; i++) {
+        const b = heteronyms[i]?.['b'];
+        if (typeof b !== 'string' || b.length === 0) break;
+        const bNorm = b
+          .replace(/ /g, '\u3000')
+          .replace(/([ˇˊˋ])\u3000/g, '$1')
+          .replace(/ /g, '\u3000')
+          .replace(/^（.*?）/g, '')
+          .replace(/（.*?）/g, '');
+        const audioTitle = title.replace(/，/g, '');
+        const audioId =
+          i > 0
+            ? audioMap[`${audioTitle}.${bNorm}`]
+            : audioMap[`${audioTitle}.${bNorm}`] ??
+              (title.length > 1 ? audioMap[title] : undefined);
+        if (audioId !== undefined) {
+          heteronyms[i]!['='] = audioId;
+        }
+      }
+    }
+  }
+
   const trie = buildPrefixTrie(entriesForPrefix);
   const { lenToRegex, abbrevToTitle } = buildLenToRegex(trie, lang);
 
@@ -224,9 +264,15 @@ function loadGrokEntries(
 ): GrokEntry[] {
   const paths: string[] = [];
   switch (lang) {
-    case 'a':
-      paths.push(path.join(inputDir, 'dict-revised.json'));
+    case 'a': {
+      const translated = path.join(inputDir, 'dict-revised-translated.json');
+      paths.push(
+        fs.existsSync(translated)
+          ? translated
+          : path.join(inputDir, 'dict-revised.json'),
+      );
       break;
+    }
     case 't':
       paths.push(path.join(inputDir, 'dict-twblg.json'));
       paths.push(path.join(inputDir, 'dict-twblg-ext.json'));
@@ -249,6 +295,34 @@ function loadGrokEntries(
     for (const entry of grokked) all.push(entry);
   }
   return all;
+}
+
+/**
+ * Load and preprocess the Mandarin audio map (legacy autolink.ls lines 6-11).
+ * Returns a title/title.bopomofo → audio_id lookup, or null if the audio file
+ * is absent (non-Mandarin or missing data).
+ */
+function loadAudioMap(
+  lang: Lang,
+  inputDir: string,
+): Record<string, string> | null {
+  if (lang !== 'a') return null;
+  const audioPath = path.join(inputDir, 'dict-concised.audio.json');
+  if (!fs.existsSync(audioPath)) return null;
+  const raw: Record<string, string> = JSON.parse(
+    fs.readFileSync(audioPath, 'utf8'),
+  );
+  const map: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const key = k.replace(/（.*?）/g, '').replace(/，/g, '');
+    map[key] = v;
+    const dotIdx = key.lastIndexOf('.');
+    if (dotIdx >= 0) {
+      const bare = key.slice(0, dotIdx);
+      if (bare.length > 1 && !(bare in map)) map[bare] = v;
+    }
+  }
+  return map;
 }
 
 export { splitChunks }
