@@ -123,6 +123,7 @@ function compareManifestFiles(
 const packInput = process.env.MOEDICT_PACK_INPUT;
 const hasPackInput =
   !!packInput && fs.existsSync(path.join(packInput, 'dict-revised.json'));
+const goldenIt = hasPackInput ? it : it.skip;
 
 describe('golden output', () => {
   it('has a committed fixture manifest', () => {
@@ -132,15 +133,7 @@ describe('golden output', () => {
     expect(entries.some((e) => e.path.startsWith('pack/'))).toBe(true);
   });
 
-  it('matches legacy pack subset for a when MOEDICT_PACK_INPUT is set', async () => {
-    if (!hasPackInput) {
-      // CI and bare checkouts have no full dict; skip rather than fail.
-      console.warn(
-        'skipping pack golden: set MOEDICT_PACK_INPUT to a dir containing dict-revised.json',
-      );
-      return;
-    }
-
+  goldenIt('matches legacy pack subset for a when MOEDICT_PACK_INPUT is set', async () => {
     const out = fs.mkdtempSync(path.join(tmpdir(), 'pack-golden-'));
     try {
       await runPack({

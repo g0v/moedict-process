@@ -14,6 +14,9 @@ parse.log
 /c/
 /pack/
 /ptck/
+*.swp
+*.swo
+*~
 /phck/
 /pcck/
 /lookup/
