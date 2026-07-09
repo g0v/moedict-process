@@ -1,3 +1,6 @@
+import * as fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { codepointCount } from './codepoint';
 import { canonicalJson } from './serializer';
 import type { GrokEntry } from './types';
@@ -85,9 +88,46 @@ export function unescapeLegacy(s: string): string {
   });
 }
 
+// Legacy {[hex]}→glyph conversion (moedict-epub sym.txt, the PUA-free default
+// json2unicode.pl uses for dict-revised.unicode.json). Two key kinds:
+//   plain `<hex> <value>` — inline `{[hex]}` → value (IDS/Unihan, PUA-free).
+//   `x<hex> <value>`      — whole-string `"{[hex]}"` → value (compat pass).
+// Unknown {[hex]} tokens are left as the literal `{[hex]}` string (not expanded
+// to a codepoint) so no unmapped PUA enters the pack; assertNoPua then only sees
+// the raw variant-headword PUA (allowlisted) and curated sym values.
+const SYM_MAP: Record<string, string> = {};
+const X_SYM_MAP: Record<string, string> = {};
+{
+  const p = fileURLToPath(new URL('./data/sym.txt', import.meta.url));
+  for (const line of fs.readFileSync(p, 'utf8').split('\n')) {
+    const parts = line.split(/\s+/, 2);
+    if (parts.length !== 2) continue;
+    const k = parts[0]!;
+    const v = parts[1]!;
+    if (k.startsWith('x')) X_SYM_MAP[k.slice(1)] = v;
+    else SYM_MAP[k] = v;
+  }
+}
+
 export function expandPuaTokens(input: string): string {
-  return input.replace(/\{\[([a-f0-9]{4,5})\]\}/g, (_match, hex) => {
+  // Pass 1 (compat): a JSON string value that is exactly "{[hex]}" → the x-sym
+  // (or plain-sym) value, re-quoted. Mirrors json2unicode.pl's first pass.
+  let out = input.replace(/"\{\[([a-f0-9]{4,5})\]\}"/g, (match, hex) => {
+    const v = X_SYM_MAP[hex] ?? SYM_MAP[hex];
+    return v !== undefined ? JSON.stringify(v) : match;
+  });
+  // Pass 2 (generic): inline {[hex]} → sym value (IDS/Unihan) for known keys;
+  // otherwise a codepoint escape — but a plane-15 PUA literal outside the 131
+  // MOE-font variant set is left as the literal `{[hex]}` token (no unmapped PUA
+  // enters the pack; assertNoPua only sees allowlisted raw variant PUA + sym
+  // values). BMP/astral non-PUA escapes (e.g. {[4e2d]}→中) decode normally.
+  return out.replace(/\{\[([a-f0-9]{4,5})\]\}/g, (match, hex) => {
+    const mapped = SYM_MAP[hex];
+    if (mapped !== undefined) return mapped;
     const code = parseInt(hex, 16);
+    if (code >= 0xf0000 && code <= 0xffffd) {
+      return VARIANT_PUA_ALLOWLIST.has(code) ? String.fromCodePoint(code) : match;
+    }
     return String.fromCodePoint(code);
   });
 }
