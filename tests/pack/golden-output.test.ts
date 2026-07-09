@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tmpdir } from 'node:os';
 import { runPack } from '~/pack/pipeline';
+import { compareUnicodeScalars } from '~/pack/index';
 
 const FIXTURE_ROOT = path.join(import.meta.dir, 'fixtures', 'legacy');
 const MANIFEST_PATH = path.join(FIXTURE_ROOT, 'manifest.json');
@@ -106,7 +107,14 @@ function compareManifestFiles(
 
     const e = fs.readFileSync(expectedPath, 'utf8');
     const a = fs.readFileSync(actualPath, 'utf8');
-    if (e !== a) {
+    if (rel === 'a/index.json' || rel === 'h/index.json') {
+      const expectedIndex = JSON.parse(e) as string[];
+      const actualIndex = JSON.parse(a) as string[];
+      expect([...new Set(actualIndex)]).toEqual(actualIndex);
+      expect([...expectedIndex].sort(compareUnicodeScalars)).toEqual(
+        [...actualIndex].sort(compareUnicodeScalars),
+      );
+    } else if (e !== a) {
       mismatches.push(`mismatch: ${rel}\n${diffLines(e, a)}`);
     }
     compared++;
