@@ -56,10 +56,15 @@ function diffLines(expected: string, actual: string): string {
 
 function shouldSkipManifestPath(rel: string): string | null {
   const base = path.basename(rel);
-  // Only Mandarin index/xref generation remains unresolved. Taiwanese index
-  // and any future Hakka xref fixture must be compared when included.
-  if (rel === 'a/index.json' || rel === 'a/xref.json') {
-    return 'Mandarin index/xref not produced by current pack pipeline';
+  // The core pipeline does not yet generate Mandarin or Hakka index/xref
+  // metadata. Exact paths keep generated Taiwanese metadata comparable.
+  if (
+    rel === 'a/index.json' ||
+    rel === 'a/xref.json' ||
+    rel === 'h/index.json' ||
+    rel === 'h/xref.json'
+  ) {
+    return 'Mandarin/Hakka index/xref not produced by current pack pipeline';
   }
   // Special entry JSONs are inputs to special2pack, not pack outputs of runPack(a).
   if (base.startsWith('@') || base.startsWith('=')) {
@@ -125,6 +130,17 @@ const packInput = process.env.MOEDICT_PACK_INPUT;
 const hasPackInput =
   !!packInput && fs.existsSync(path.join(packInput, 'dict-revised.json'));
 const goldenIt = hasPackInput ? it : it.skip;
+
+describe('golden manifest skip policy', () => {
+  it('skips only metadata outputs the core pipeline does not generate', () => {
+    expect(shouldSkipManifestPath('a/index.json')).not.toBeNull();
+    expect(shouldSkipManifestPath('a/xref.json')).not.toBeNull();
+    expect(shouldSkipManifestPath('h/index.json')).not.toBeNull();
+    expect(shouldSkipManifestPath('h/xref.json')).not.toBeNull();
+    expect(shouldSkipManifestPath('t/index.json')).toBeNull();
+    expect(shouldSkipManifestPath('t/xref.json')).toBeNull();
+  });
+});
 
 describe('golden output', () => {
   it('has a committed fixture manifest', () => {

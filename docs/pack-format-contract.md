@@ -116,11 +116,12 @@ property tests and golden-output regression tests:
 
 ## Known differences from legacy output
 
-1. **`a/index.json` / `a/xref.json`** — not yet produced by `bun run pack`.
-   The legacy Mandarin index uses Chinese collation; xref requires Taiwanese
-   and Hakka correspondence records that are not retained in packed dictionary
-   entries. Golden tests skip these paths until their source-driven generators
-   are ported.
+1. **`a/index.json`, `a/xref.json`, `h/index.json`, and `h/xref.json`** — not
+   yet produced by `bun run pack`. The legacy Mandarin index uses Chinese
+   collation; Mandarin/Taiwanese xref requires `x-華語對照表.csv`, while the
+   Hakka index/xref requires the historical `work-in-progress.json` side input.
+   Golden tests skip only these exact paths until their source-driven
+   generators are ported.
 2. **Special `@*.json` / `=*.json` entry files** under `a/` — these are inputs to
    `special2pack` (and category dumps), not outputs of the core pack run. The
    pipeline writes aggregated `pack/@.txt` and `pack/=.txt` when those inputs
