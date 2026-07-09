@@ -92,6 +92,43 @@ export function expandPuaTokens(input: string): string {
   });
 }
 
+/** True for BMP and supplementary Private Use Areas. */
+export function isPuaCodePoint(cp: number): boolean {
+  return (
+    (cp >= 0xe000 && cp <= 0xf8ff) ||
+    (cp >= 0xf0000 && cp <= 0xffffd) ||
+    (cp >= 0x100000 && cp <= 0x10fffd)
+  );
+}
+
+/** Collect distinct PUA codepoints in `text` (order of first appearance). */
+export function findPuaCodePoints(text: string): number[] {
+  const seen = new Set<number>();
+  const out: number[] = [];
+  for (const ch of text) {
+    const cp = ch.codePointAt(0)!;
+    if (isPuaCodePoint(cp) && !seen.has(cp)) {
+      seen.add(cp);
+      out.push(cp);
+    }
+  }
+  return out;
+}
+
+/**
+ * Fail hard if processed pack text still contains PUA.
+ * Unmapped MOE/source PUA must be curated to assigned Unihan (or IDS),
+ * not silently stripped — font coverage is a render-side concern.
+ */
+export function assertNoPua(text: string, context: string): void {
+  const pua = findPuaCodePoints(text);
+  if (pua.length === 0) return;
+  const labels = pua.map((cp) => `U+${cp.toString(16).toUpperCase()}`);
+  throw new Error(
+    `PUA codepoint(s) in processed pack data (${context}): ${labels.join(', ')}`,
+  );
+}
+
 export interface LenToRegexMap {
   [length: number]: RegExp;
 }

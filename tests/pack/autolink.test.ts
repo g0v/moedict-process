@@ -7,15 +7,11 @@ import {
   autolinkLine,
   grokJson,
   IDS2UNI,
+  isPuaCodePoint,
+  findPuaCodePoints,
+  assertNoPua,
 } from '~/pack/autolink';
 
-function isPuaCodePoint(cp: number): boolean {
-  return (
-    (cp >= 0xe000 && cp <= 0xf8ff) ||
-    (cp >= 0xf0000 && cp <= 0xffffd) ||
-    (cp >= 0x100000 && cp <= 0x10fffd)
-  );
-}
 
 describe('minifyKeys', () => {
   it('shortens known keys', () => {
@@ -72,6 +68,21 @@ describe('IDS2UNI PUA-free Unihan map', () => {
     ]);
     const entries = grokJson(raw, IDS2UNI);
     expect(entries.map((e) => e.t)).toEqual(['𬦰', '𰣻', '𫣆', '𬠖', '𱱾']);
+  });
+});
+
+describe('assertNoPua', () => {
+  it('accepts assigned Unihan and ASCII', () => {
+    expect(() => assertNoPua('中央𬦰𰣻𱱾', 'ok')).not.toThrow();
+    expect(findPuaCodePoints('中央')).toEqual([]);
+  });
+
+  it('rejects plane-15 PUA with context', () => {
+    const pua = String.fromCodePoint(0xf0000);
+    expect(isPuaCodePoint(0xf0000)).toBe(true);
+    expect(() => assertNoPua(`x${pua}y`, 'lang=a title=淘漉')).toThrow(
+      /PUA codepoint\(s\).*lang=a title=淘漉.*U\+F0000/,
+    );
   });
 });
 

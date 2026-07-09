@@ -9,6 +9,7 @@ import {
   buildLenToRegexMap,
   autolinkLine,
   IDS2UNI,
+  assertNoPua,
 } from './autolink';
 import type { AutolinkJob, AutolinkResult } from './autolink-worker';
 import { PackWriter } from './io';
@@ -103,6 +104,10 @@ async function packLang(
     const expandedPayload = expandPuaTokens(payload);
     const titleMatch = expandedPayload.match(/"t":"([^"]+)"/);
     const fileTitle = (titleMatch?.[1] ?? '').replace(/[`~]/g, '');
+    assertNoPua(
+      expandedPayload,
+      `lang=${lang} title=${fileTitle || bucketTitle}`,
+    );
     writer.writeEntry(lang, bucket, bucketTitle, fileTitle, expandedPayload);
   }
   writer.finalize();
