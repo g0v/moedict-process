@@ -26,6 +26,7 @@
 
 **Files:**
 - Create: `src/pack/index.ts`
+- Modify: `src/pack/io.ts`
 - Modify: `src/pack/pipeline.ts`
 - Create: `tests/pack/index.test.ts`
 - Modify: `tests/pack/golden-output.test.ts`
@@ -33,7 +34,8 @@
 
 **Interfaces:**
 - Produces `writeGeneratedIndex(lang: 'a' | 'h', titles: readonly string[], outputDir: string): void`.
-- `runPack` calls it after duplicate removal and before special-pack assembly.
+- `PackWriter.writeEntry` returns the accepted normalized `fileTitle`, or `null` if `FileTitleAcceptor` rejects it.
+- `runPack` collects only non-null accepted titles, then calls the index writer before special-pack assembly.
 - The writer creates `<outputDir>/<lang>/index.json` with `canonicalJson(sortedUniqueTitles) + '\n'`.
 
 - [ ] **Step 1: Write failing index tests**
@@ -44,8 +46,9 @@ it('writes sorted unique Unicode-scalar titles', () => {
   expect(readJson(out, 'a/index.json')).toEqual(['乙', '甲', '𠮷']);
 });
 
-it('rejects uncurated PUA titles with index context', () => {
-  expect(() => writeGeneratedIndex('h', ['\u{F0009}'], out)).toThrow('PUA');
+it('rejects only uncurated PUA and retains approved MOE variants', () => {
+  expect(() => writeGeneratedIndex('h', ['\u{F0008}'], out)).toThrow('PUA');
+  expect(() => writeGeneratedIndex('h', ['\u{F0009}'], out)).not.toThrow();
 });
 ```
 
@@ -77,7 +80,9 @@ export function writeGeneratedIndex(lang: 'a' | 'h', titles: readonly string[], 
 }
 ```
 
-Wire calls only for `lang === 'a' || lang === 'h'`, passing the same unique emitted titles used for pack records.
+Wire calls only for `lang === 'a' || lang === 'h'`, collecting the `fileTitle`
+returned only after `PackWriter` accepts the entry. Add a canonically equivalent
+filename regression proving a rejected duplicate never appears in the index.
 
 - [ ] **Step 4: Run focused tests and verify GREEN**
 
@@ -88,7 +93,7 @@ Expected: all focused assertions pass; current a/h fixture comparisons remain se
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/pack/index.ts src/pack/pipeline.ts tests/pack/index.test.ts tests/pack/golden-output.test.ts docs/pack-format-contract.md
+git add src/pack/index.ts src/pack/io.ts src/pack/pipeline.ts tests/pack/index.test.ts tests/pack/golden-output.test.ts docs/pack-format-contract.md
 git commit -m "feat(pack): generate deterministic Mandarin and Hakka indexes"
 ```
 
@@ -96,12 +101,14 @@ git commit -m "feat(pack): generate deterministic Mandarin and Hakka indexes"
 
 **Files:**
 - Create: `src/pack/xref.ts`
+- Create: `src/pack/data/hakka-pua.json`
 - Modify: `src/pack/pipeline.ts`
 - Create: `tests/pack/xref.test.ts`
 - Modify: `docs/pack-format-contract.md`
 
 **Interfaces:**
 - Produces `writeXrefs(inputDir: string, outputDir: string, mandarinTitles: ReadonlySet<string>): void`.
+- Before parsing WIP JSON, replaces every `{[xxxx]}` token through the fixed Hakka mapping in `src/pack/data/hakka-pua.json`, transcribed from `moedict-data-hakka/wip2dict.ls`'s `PUA` table. The source map must contain all table entries and assigned Unicode values, not a generic Mandarin symbol map.
 - `x-華語對照表.csv` provides CSV rows `華語,詞條編號,詞條名稱`; it writes `a/xref.json` as `{ t: Record<string, string> }` and `t/xref.json` as `{ a: Record<string, string> }`. Empty comma components and the seeded `萌` ↔ `發穎` row are preserved.
 - `work-in-progress.json` is an array with `詞目` and `對應華語`; it merges `{ h: Record<string, string> }` into `a/xref.json` after filtering emitted Mandarin keys, and writes `h/xref.json` as `{ a: Record<string, string> }`. The reverse Hakka map retains every target and autolinks recognized Mandarin targets.
 
@@ -113,18 +120,24 @@ it('does not emit xrefs without explicit side sources', () => {
   expect(fs.existsSync(path.join(out, 'a', 'xref.json'))).toBe(false);
 });
 
-it('writes the legacy Taiwanese sectioned objects and preserves empty components', () => {
-  writeFile('x-華語對照表.csv', '華語,詞條編號,詞條名稱\n萌,1,發穎\n同僚,2,同事\n不存在,3,無\n');
-  writeXrefs(input, out, new Set(['萌', '同僚']));
-  expect(readJson(out, 'a/xref.json')).toEqual({ t: { 萌: '發穎', 同僚: '同事,' } });
-  expect(readJson(out, 't/xref.json')).toEqual({ a: { 發穎: '萌', 同事: '同僚' } });
+it('writes Taiwanese sections with identity empty components', () => {
+  writeFile('x-華語對照表.csv', '華語,詞條編號,詞條名稱\n同僚,2,同事\n同僚,3,同僚\n不存在,4,無\n');
+  writeXrefs(input, out, new Set(['同僚']));
+  expect(readJson(out, 'a/xref.json')).toEqual({ t: { 同僚: '同事,' } });
+  expect(readJson(out, 't/xref.json')).toEqual({ a: { 同事: '同僚', 同僚: '同僚' } });
+});
+it('normalizes Hakka WIP placeholder tokens before filtering and serializing', () => {
+  writeFile('work-in-progress.json', JSON.stringify([{ 詞目: '【{[F305]}仔】', 對應華語: '我' }]));
+  writeXrefs(input, out, new Set(['我']));
+  expect(readJson(out, 'a/xref.json')).toEqual({ h: { 我: '𠊎仔' } });
+  expect(readJson(out, 'h/xref.json')).toEqual({ a: { 𠊎仔: '`我~' } });
 });
 
 it('writes Hakka M2H filtering and H2M autolinking asymmetrically', () => {
   writeFile('work-in-progress.json', JSON.stringify([{ 詞目: '【細人仔】', 對應華語: '小孩、兒童' }]));
   writeXrefs(input, out, new Set(['小孩']));
   expect(readJson(out, 'a/xref.json')).toEqual({ h: { 小孩: '細人仔' } });
-  expect(readJson(out, 'h/xref.json')).toEqual({ a: { 細人仔: '`小孩~、兒童' } });
+  expect(readJson(out, 'h/xref.json')).toEqual({ a: { 細人仔: '`小孩~,兒童' } });
 });
 ```
 
@@ -136,7 +149,7 @@ Expected: failure because `~/pack/xref` and `writeXrefs` do not exist.
 
 - [ ] **Step 3: Implement only the specified transformations**
 
-Parse CSV with a BOM-safe line reader and preserve each source row's term order. Emit the legacy sectioned objects, not title-keyed language objects. In the Taiwanese transform, append a comma after every non-final CSV term, retain empty components, and seed `萌` ↔ `發穎`. Normalize Hakka `詞目` by removing `【`/`】`; M2H filters Mandarin keys through `mandarinTitles`, while H2M retains every `對應華語` target and applies legacy backtick/tilde autolinks to recognized Mandarin targets. Serialize each xref file with `canonicalJson` plus one trailing newline; object-key normalization is intentional because legacy Perl hash order was not canonical.
+Before `JSON.parse`, replace all WIP `{[xxxx]}` tokens using the complete fixed Hakka map from `wip2dict.ls`; do not substitute the unrelated generic symbol map. Parse CSV with a BOM-safe line reader and preserve each source row's term order. Emit the legacy sectioned objects, not title-keyed language objects. For each CSV Mandarin group, serialize a non-final Taiwanese target followed by `,`; serialize the same-title target as an empty final component. Build reverse Taiwanese values separately, preserving the identity mapping. Seed `萌` ↔ `發穎` before CSV processing but deduplicate that seed by mapping pair. Normalize Hakka `詞目` by removing `【`/`】`; M2H filters Mandarin keys through `mandarinTitles`, while H2M replaces `、`/full-width spaces with `,`, retains every target, and applies legacy backtick/tilde autolinks to recognized Mandarin targets. Serialize each xref file with `canonicalJson` plus one trailing newline, then call `assertNoPua` on that serialized output. Object-key normalization is intentional because legacy Perl hash order was not canonical.
 
 - [ ] **Step 4: Run focused tests and verify GREEN**
 
