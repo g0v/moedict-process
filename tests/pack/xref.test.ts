@@ -59,4 +59,12 @@ describe('writeXrefs', () => {
     expect(readJson(out, 'a/xref.json')).toEqual({ h: { 小孩: '細人仔', 兒童: '細人仔' } });
     expect(readJson(out, 'h/xref.json')).toEqual({ a: { 細人仔: '`小孩~,,`兒童~' } });
   });
+
+  it('rejects unknown Hakka placeholder tokens', () => {
+    fs.writeFileSync(
+      path.join(input, 'work-in-progress.json'),
+      JSON.stringify([{ 詞目: '【{[FFFF]}】', 對應華語: '測試' }]),
+    );
+    expect(() => writeXrefs(input, out, new Set(['測試']))).toThrow('unknown Hakka PUA token');
+  });
 });

@@ -20,9 +20,11 @@ function writeJson(outputDir: string, lang: 'a' | 't' | 'h', name: string, value
 }
 
 function normalizedHakkaWip(raw: string): Array<Record<string, string>> {
-  const replaced = raw.replace(/\{\[([0-9a-f]{4})\]\}/gi, (token, hex) =>
-    hakkaPua[hex.toUpperCase() as keyof typeof hakkaPua] ?? token,
-  );
+  const replaced = raw.replace(/\{\[([0-9a-f]{4})\]\}/gi, (token, hex) => {
+    const replacement = hakkaPua[hex.toUpperCase() as keyof typeof hakkaPua];
+    if (replacement === undefined) throw new Error(`unknown Hakka PUA token: ${token}`);
+    return replacement;
+  });
   return JSON.parse(replaced) as Array<Record<string, string>>;
 }
 
