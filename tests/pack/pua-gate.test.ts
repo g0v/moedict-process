@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tmpdir } from 'node:os';
 import { runPack } from '~/pack/pipeline';
+import { buildSpecialPacks, buildCategoryFiles } from '~/pack/special';
 
 describe('pack PUA gate', () => {
   it('fails runPack when source definitions contain unmapped PUA', async () => {
@@ -45,6 +46,29 @@ describe('pack PUA gate', () => {
       runPack({ lang: 'a', inputDir: input, outputDir: output, concurrency: 1 }),
     ).rejects.toThrow(/PUA codepoint\(s\).*U\+FBFB9/);
 
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it('fails buildSpecialPacks when @ payload contains PUA', () => {
+    const root = fs.mkdtempSync(path.join(tmpdir(), 'special-pua-'));
+    const aDir = path.join(root, 'a');
+    fs.mkdirSync(aDir, { recursive: true });
+    const pua = String.fromCodePoint(0xfbfb9);
+    fs.writeFileSync(path.join(aDir, '@一.json'), JSON.stringify(['甲', `乙${pua}`]));
+
+    expect(() => buildSpecialPacks('a', root)).toThrow(
+      /PUA codepoint\(s\).*special a\/@一\.json.*U\+FBFB9/,
+    );
+
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it('fails buildCategoryFiles when entries contain PUA', () => {
+    const root = fs.mkdtempSync(path.join(tmpdir(), 'cat-pua-'));
+    const pua = String.fromCodePoint(0xf0000);
+    expect(() =>
+      buildCategoryFiles([{ name: '測試', entries: ['甲', `乙${pua}`] }], root),
+    ).toThrow(/PUA codepoint\(s\).*category =測試.*U\+F0000/);
     fs.rmSync(root, { recursive: true, force: true });
   });
 });

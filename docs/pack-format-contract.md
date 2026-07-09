@@ -123,10 +123,12 @@ property tests and golden-output regression tests:
    - **`IDS2UNI`** maps known IDS to assigned Unihan (shared by prefix+autolink):
      `⿰𧾷百`→U+2C9B0 𬦰, `⿸疒哥`→U+308FB 𰣻, `⿰亻恩`→U+2B8C6 𫣆,
      `⿰虫念`→U+2C816 𬠖, `⿺皮卜`→U+31C7F 𱱿.
-   - **`assertNoPua`** runs after `{[hex]}` expansion and before `PackWriter`
-     writes. Unmapped MOE/source PUA in definitions (e.g. plane‑15 glyphs still
-     present in `dict-revised.json`) **fail the pack** with title context so
-     mappings can be curated. No silent strip/`□` substitution.
+   - **`assertNoPua`** runs on every pack output surface: entry payloads before
+     `PackWriter.writeEntry`, special `@/=` payloads before `pack/@.txt`/`=.txt`,
+     category files, twblg `index.json`, and intermediate
+     `lenToRegex`/`precomputed` JSON. Unmapped MOE/source PUA (e.g. plane‑15
+     glyphs still present in `dict-revised.json`) **fails the pack** with
+     path/title context so mappings can be curated. No silent strip/`□`.
 
    Font coverage for Ext C/E/G/H is **render-side**. Fixtures from the pre-Unihan
    pack tree may still show PUA/`𬦀` until regenerated from a PUA-free source.

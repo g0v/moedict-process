@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Lang } from './types';
+import { assertNoPua } from './autolink';
 
 const PACK_DIR: Record<Lang, string> = {
   a: 'pack',
@@ -50,6 +51,7 @@ function writeSpecialPack(
     const base = path.basename(file, '.json');
     if (special === '=' && base === '=') continue;
     const payload = stripPayloadWhitespace(fs.readFileSync(file, 'utf8'));
+    assertNoPua(payload, `special ${lang}/${base}.json`);
     const escaped = escapeSpecialKey(base);
     if (printed === 0) {
       body += `"${escaped}":${payload}`;
@@ -60,6 +62,7 @@ function writeSpecialPack(
   }
   if (printed === 0) return;
   body += '\n}\n';
+  assertNoPua(body, `special pack ${lang}/${special}.txt`);
   fs.writeFileSync(outPath, body);
 }
 
@@ -77,7 +80,9 @@ export function buildCategoryFiles(
   outputDir: string,
 ): void {
   for (const { name, entries } of dictCat) {
-    fs.writeFileSync(path.join(outputDir, `=${name}`), JSON.stringify(entries));
+    const content = JSON.stringify(entries);
+    assertNoPua(content, `category =${name}`);
+    fs.writeFileSync(path.join(outputDir, `=${name}`), content);
   }
 }
 
@@ -99,7 +104,9 @@ export async function buildTwblgIndex(csvPath: string, outputPath: string): Prom
   }
   const unique = [...new Set(entries)].sort();
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, JSON.stringify(unique, null, 1) + '\n');
+  const content = JSON.stringify(unique, null, 1) + '\n';
+  assertNoPua(content, `twblg index ${outputPath}`);
+  fs.writeFileSync(outputPath, content);
 }
 
 /** Minimal RFC-style CSV row parser (handles quoted fields). */

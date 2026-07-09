@@ -61,16 +61,20 @@ async function packLang(
   fs.mkdirSync(langOutputDir, { recursive: true });
 
   for (const [len, re] of Object.entries(lenToRegex)) {
-    fs.writeFileSync(
-      path.join(langOutputDir, `lenToRegex.${len}.json`),
-      canonicalJson({ [len]: re }),
-    );
+    const content = canonicalJson({ [len]: re });
+    assertNoPua(content, `lang=${lang} lenToRegex.${len}.json`);
+    fs.writeFileSync(path.join(langOutputDir, `lenToRegex.${len}.json`), content);
   }
-  fs.writeFileSync(path.join(langOutputDir, 'lenToRegex.json'), canonicalJson({ lenToRegex }));
-  fs.writeFileSync(
-    path.join(langOutputDir, 'precomputed.json'),
-    canonicalJson({ abbrevToTitle }),
-  );
+  {
+    const content = canonicalJson({ lenToRegex });
+    assertNoPua(content, `lang=${lang} lenToRegex.json`);
+    fs.writeFileSync(path.join(langOutputDir, 'lenToRegex.json'), content);
+  }
+  {
+    const content = canonicalJson({ abbrevToTitle });
+    assertNoPua(content, `lang=${lang} precomputed.json`);
+    fs.writeFileSync(path.join(langOutputDir, 'precomputed.json'), content);
+  }
 
   // Deduplicate titles once on the main thread so workers don't need global seen state.
   const uniqueEntries: GrokEntry[] = [];

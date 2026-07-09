@@ -4,45 +4,37 @@ import * as path from 'node:path';
 import { tmpdir } from 'node:os';
 import { buildSpecialPacks, buildCategoryFiles } from '~/pack/special';
 
-const FIXTURE_ROOT = path.join(import.meta.dir, 'fixtures', 'legacy');
+// Legacy fixture a/ specials still embed plane-15 PUA; happy-path tests use
+// synthetic PUA-free inputs. Rejection is covered by tests/pack/pua-gate.test.ts.
 
 describe('buildSpecialPacks', () => {
   let out: string;
-  beforeEach(() => { out = fs.mkdtempSync(path.join(tmpdir(), 'special-')); });
-  afterEach(() => { fs.rmSync(out, { recursive: true, force: true }); });
+  beforeEach(() => {
+    out = fs.mkdtempSync(path.join(tmpdir(), 'special-'));
+  });
+  afterEach(() => {
+    fs.rmSync(out, { recursive: true, force: true });
+  });
 
-  it('builds @.txt from fixture a/ special JSON files', () => {
-    const aSrc = path.join(FIXTURE_ROOT, 'a');
+  it('builds @.txt with literal "@" and escaped radical keys', () => {
     const aDst = path.join(out, 'a');
     fs.mkdirSync(aDst, { recursive: true });
-    for (const name of fs.readdirSync(aSrc)) {
-      if (name.startsWith('@') && name.endsWith('.json')) {
-        fs.copyFileSync(path.join(aSrc, name), path.join(aDst, name));
-      }
-    }
+    fs.writeFileSync(path.join(aDst, '@.json'), JSON.stringify([['一', '丨']]));
+    fs.writeFileSync(path.join(aDst, '@一.json'), JSON.stringify(['丁', '七']));
     buildSpecialPacks('a', out);
-    const atTxt = path.join(out, 'pack', '@.txt');
-    expect(fs.existsSync(atTxt)).toBe(true);
-    const body = fs.readFileSync(atTxt, 'utf8');
+    const body = fs.readFileSync(path.join(out, 'pack', '@.txt'), 'utf8');
     expect(body.startsWith('{"@":')).toBe(true);
     expect(body).toContain('"@%u4E00":');
+    expect(body).not.toMatch(/^\{\n/);
   });
 
   it('builds =.txt with escaped equals keys', () => {
-    const aSrc = path.join(FIXTURE_ROOT, 'a');
     const aDst = path.join(out, 'a');
     fs.mkdirSync(aDst, { recursive: true });
-    for (const name of fs.readdirSync(aSrc)) {
-      if (name.startsWith('=') && name.endsWith('.json')) {
-        fs.copyFileSync(path.join(aSrc, name), path.join(aDst, name));
-      }
-    }
+    fs.writeFileSync(path.join(aDst, '=地名.json'), JSON.stringify(['臺北', '高雄']));
     buildSpecialPacks('a', out);
-    const eqTxt = path.join(out, 'pack', '=.txt');
-    expect(fs.existsSync(eqTxt)).toBe(true);
-    const body = fs.readFileSync(eqTxt, 'utf8');
-    expect(body.startsWith('{"%3D')).toBe(true);
-    expect(body).toContain('"%3D%u5730%u540D":');
+    const body = fs.readFileSync(path.join(out, 'pack', '=.txt'), 'utf8');
+    expect(body.startsWith('{"%3D%u5730%u540D":')).toBe(true);
     expect(body).not.toMatch(/^\{,/);
     expect(body).not.toMatch(/^\{\n/);
   });
@@ -50,7 +42,7 @@ describe('buildSpecialPacks', () => {
   it('includes @.json as literal "@" key', () => {
     const aDst = path.join(out, 'a');
     fs.mkdirSync(aDst, { recursive: true });
-    fs.copyFileSync(path.join(FIXTURE_ROOT, 'a', '@.json'), path.join(aDst, '@.json'));
+    fs.writeFileSync(path.join(aDst, '@.json'), JSON.stringify([['甲']]));
     buildSpecialPacks('a', out);
     const body = fs.readFileSync(path.join(out, 'pack', '@.txt'), 'utf8');
     expect(body.startsWith('{"@":')).toBe(true);
@@ -59,8 +51,9 @@ describe('buildSpecialPacks', () => {
   it('skips =.json when building =.txt', () => {
     const aDst = path.join(out, 'a');
     fs.mkdirSync(aDst, { recursive: true });
-    fs.copyFileSync(path.join(FIXTURE_ROOT, 'a', '=.json'), path.join(aDst, '=.json'));
-    fs.copyFileSync(path.join(FIXTURE_ROOT, 'a', '=地名.json'), path.join(aDst, '=地名.json'));
+    // =.json would be first in sort; if comma logic were wrong we'd emit "{,".
+    fs.writeFileSync(path.join(aDst, '=.json'), JSON.stringify(['成語']));
+    fs.writeFileSync(path.join(aDst, '=地名.json'), JSON.stringify(['臺北']));
     buildSpecialPacks('a', out);
     const body = fs.readFileSync(path.join(out, 'pack', '=.txt'), 'utf8');
     expect(body.startsWith('{"%3D%u5730%u540D":')).toBe(true);
