@@ -14,13 +14,15 @@ parse.log
 /c/
 /pack/
 /ptck/
-*.swp
-*.swo
-*~
 /phck/
 /pcck/
 /lookup/
 /out/
+
+# Editor swap files
+*.swp
+*.swo
+*~
 
 # Bun/TS
 node_modules/
