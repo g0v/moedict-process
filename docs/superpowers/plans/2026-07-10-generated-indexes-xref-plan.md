@@ -4,7 +4,7 @@
 
 **Goal:** Replace checked-in legacy a/h index artifacts with deterministic generated indexes, and reproduce cross-language xrefs from their explicit upstream side inputs.
 
-**Architecture:** `src/pack/index.ts` owns a language-neutral index writer. It receives emitted titles, deduplicates exact titles, rejects non-curated PUA through the existing gate, and orders Unicode scalar sequences deterministically. `src/pack/xref.ts` owns the three xref directions: Taiwanese CSV produces a↔t; historical Hakka WIP produces a↔h. It writes canonical JSON only when its explicit source file exists; this intentionally normalizes the legacy Perl hash-object key order.
+**Architecture:** `src/pack/index.ts` owns a language-neutral index writer. It receives emitted titles, deduplicates exact titles, rejects non-curated PUA through the existing gate, and orders Unicode scalar sequences deterministically. `src/pack/xref.ts` owns the three legacy xref directions: Taiwanese CSV produces the `t` section in `a/xref.json` and the `a` section in `t/xref.json`; historical Hakka WIP produces the `h` section in `a/xref.json` and the `a` section in `h/xref.json`. Its comma-delimited strings preserve empty components, whose frontend meaning is “same title.”
 
 **Tech Stack:** TypeScript, Bun test runner, Node `fs`/`path`; existing `canonicalJson`, `assertNoPua`, and pipeline pack writer.
 
@@ -15,7 +15,8 @@
 - Keep existing Taiwanese index behavior unchanged.
 - Read cross-reference sources only from explicit files in `inputDir`: `x-華語對照表.csv` and `work-in-progress.json`.
 - Do not infer correspondence data from dictionary definitions or fixture output.
-- Emit no xref file when its required source is absent.
+- Emit no xref direction when its required source is absent; seed the historical `萌` ↔ `發穎` correspondence in the Taiwanese transform.
+- Preserve xref's legacy sectioned object wire shape and comma-delimited values exactly; empty components are semantic.
 - Compare xrefs as parsed JSON semantics, never by legacy Perl hash serialization order.
 - Tests must be red before their production implementation and cover absent source input, valid source generation, output direction, filters, and deterministic serialization.
 
@@ -101,8 +102,8 @@ git commit -m "feat(pack): generate deterministic Mandarin and Hakka indexes"
 
 **Interfaces:**
 - Produces `writeXrefs(inputDir: string, outputDir: string, mandarinTitles: ReadonlySet<string>): void`.
-- `x-華語對照表.csv` provides CSV rows `華語,詞條編號,詞條名稱`; it writes `a/xref.json` entries `{t: string[]}` and `t/xref.json` entries `{a: string[]}` after filtering Mandarin keys to emitted titles.
-- `work-in-progress.json` is an array with `詞目` and `對應華語`; it writes/merges `{h: string[]}` into `a/xref.json` and writes `h/xref.json` entries `{a: string[]}` after the same Mandarin-title filter.
+- `x-華語對照表.csv` provides CSV rows `華語,詞條編號,詞條名稱`; it writes `a/xref.json` as `{ t: Record<string, string> }` and `t/xref.json` as `{ a: Record<string, string> }`. Empty comma components and the seeded `萌` ↔ `發穎` row are preserved.
+- `work-in-progress.json` is an array with `詞目` and `對應華語`; it merges `{ h: Record<string, string> }` into `a/xref.json` after filtering emitted Mandarin keys, and writes `h/xref.json` as `{ a: Record<string, string> }`. The reverse Hakka map retains every target and autolinks recognized Mandarin targets.
 
 - [ ] **Step 1: Write failing xref tests**
 
@@ -112,18 +113,18 @@ it('does not emit xrefs without explicit side sources', () => {
   expect(fs.existsSync(path.join(out, 'a', 'xref.json'))).toBe(false);
 });
 
-it('writes both Taiwanese directions from CSV and filters absent Mandarin keys', () => {
-  writeFile('x-華語對照表.csv', '華語,詞條編號,詞條名稱\n萌,1,發穎\n不存在,2,無\n');
-  writeXrefs(input, out, new Set(['萌']));
-  expect(readJson(out, 'a/xref.json')).toEqual({ 萌: { t: ['發穎'] } });
-  expect(readJson(out, 't/xref.json')).toEqual({ 發穎: { a: ['萌'] } });
+it('writes the legacy Taiwanese sectioned objects and preserves empty components', () => {
+  writeFile('x-華語對照表.csv', '華語,詞條編號,詞條名稱\n萌,1,發穎\n同僚,2,同事\n不存在,3,無\n');
+  writeXrefs(input, out, new Set(['萌', '同僚']));
+  expect(readJson(out, 'a/xref.json')).toEqual({ t: { 萌: '發穎', 同僚: '同事,' } });
+  expect(readJson(out, 't/xref.json')).toEqual({ a: { 發穎: '萌', 同事: '同僚' } });
 });
 
-it('merges Hakka correspondence into a xref and writes reverse h xref', () => {
+it('writes Hakka M2H filtering and H2M autolinking asymmetrically', () => {
   writeFile('work-in-progress.json', JSON.stringify([{ 詞目: '【細人仔】', 對應華語: '小孩、兒童' }]));
   writeXrefs(input, out, new Set(['小孩']));
-  expect(readJson(out, 'a/xref.json')).toEqual({ 小孩: { h: ['細人仔'] } });
-  expect(readJson(out, 'h/xref.json')).toEqual({ 細人仔: { a: ['小孩'] } });
+  expect(readJson(out, 'a/xref.json')).toEqual({ h: { 小孩: '細人仔' } });
+  expect(readJson(out, 'h/xref.json')).toEqual({ a: { 細人仔: '`小孩~、兒童' } });
 });
 ```
 
@@ -135,7 +136,7 @@ Expected: failure because `~/pack/xref` and `writeXrefs` do not exist.
 
 - [ ] **Step 3: Implement only the specified transformations**
 
-Parse CSV with a BOM-safe line reader and preserve each source row's term order. Normalize Hakka `詞目` by removing `【`/`】`; split `對應華語` on `、` after removing numeric sense prefixes such as `1.`. Merge language arrays by exact title, preserve first occurrence, filter Mandarin keys through `mandarinTitles`, and serialize every emitted xref object with `canonicalJson` plus one trailing newline. Do not emit an xref direction whose source file is absent.
+Parse CSV with a BOM-safe line reader and preserve each source row's term order. Emit the legacy sectioned objects, not title-keyed language objects. In the Taiwanese transform, append a comma after every non-final CSV term, retain empty components, and seed `萌` ↔ `發穎`. Normalize Hakka `詞目` by removing `【`/`】`; M2H filters Mandarin keys through `mandarinTitles`, while H2M retains every `對應華語` target and applies legacy backtick/tilde autolinks to recognized Mandarin targets. Serialize each xref file with `canonicalJson` plus one trailing newline; object-key normalization is intentional because legacy Perl hash order was not canonical.
 
 - [ ] **Step 4: Run focused tests and verify GREEN**
 
@@ -159,7 +160,7 @@ git commit -m "feat(pack): generate cross-language xrefs from source data"
 **Interfaces:**
 - The harness runs `runPack` separately for `a`, `t`, and `h` when the corresponding source input exists.
 - For `a/index.json` and `h/index.json`, assert the generated semantic/new-contract fixture explicitly rather than legacy checked-in order.
-- For `a/xref.json`, `t/xref.json`, and `h/xref.json`, parse and compare JSON values; all other generated files remain byte comparisons.
+- For each xref file, parse and compare the legacy sectioned objects and comma-delimited values semantically; all other generated files remain byte comparisons.
 
 - [ ] **Step 1: Write failing multi-language golden test**
 
