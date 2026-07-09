@@ -1,2 +1,3 @@
 src/pack/codepoint.ts
 src/pack/bucket.ts
+src/pack/prefix.ts

@@ -14,10 +14,12 @@ export interface GrokEntry {
   [key: string]: unknown;
 }
 
-/** Prefix-to-suffixes map: value is "|suffix1|suffix2|..." from json2prefix.ls. */
-export interface PrefixTrie {
-  [prefix: string]: string;
+/** Lightweight entry shape used by the verified prefix-trie builder. */
+export interface PrefixEntry {
+  t: string;
 }
+/** Prefix-to-suffixes map: value is "|suffix1|suffix2|..." from json2prefix.ls. */
+export type PrefixTrie = Record<string, string>;
 
 export interface LenToRegexResult {
   lenToRegex: Record<number, string>;
