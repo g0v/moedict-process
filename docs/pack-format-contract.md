@@ -89,8 +89,12 @@ Each bucket file is a single-line JSON object keyed by escaped title:
 
 ### Legacy `moedict.org`
 
-- Static frontend assets are served from `g0v/moedict-app` gh-pages, not directly
-  from `moedict-webkit`.
+- Static frontend assets are served from `g0v/moedict-webkit` gh-pages (verified
+  live 2026-07-09: a font push to `g0v/moedict-webkit` gh-pages went live on
+  www.moedict.org). Earlier notes claiming `g0v/moedict-app` gh-pages host it are
+  stale. Implication: the `moedict-webkit` repo cannot be archived even after pack
+  retirement — it still hosts the live moedict.org frontend; only its pack
+  Makefile targets can retire.
 - Pack data is consumed through the same paths as `moedict.tw`.
 
 ## Trust boundaries

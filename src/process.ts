@@ -66,6 +66,45 @@ function codepointCompareSpec(a: string, b: string): number {
 }
 
 /**
+ * Proof-only transitivity carrier (recursive theorem boolean): codepointCompareSpec is
+ * a strict-weak order, so `.sort(codepointCompare)` output is actually ordered. Returns
+ * true; recurses only when the three leading codepoints are equal (the spec peels one
+ * codepoint off each), otherwise the spec is decided at the first codepoint and the
+ * integer-order arithmetic closes it. The `ensures \result === true` ties the theorem to
+ * the function's own recursion so the companion lemma has an induction handle.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- proof-only transitivity carrier, referenced only in //@ annotations
+function codepointCompareSpecTransitive(a: string, b: string, c: string): boolean {
+  //@ pure
+  //@ verify
+  //@ requires a.length >= 0
+  //@ requires b.length >= 0
+  //@ requires c.length >= 0
+  //@ decreases a.length + b.length + c.length
+  //@ ensures \result === true
+  //@ ensures (codepointCompareSpec(a, b) <= 0 && codepointCompareSpec(b, c) <= 0) ==> codepointCompareSpec(a, c) <= 0
+  if (a.length === 0 || b.length === 0 || c.length === 0) {
+    return true;
+  }
+  const aHigh = a.charCodeAt(0);
+  const aPair = a.length >= 2 && 0xD800 <= aHigh && aHigh <= 0xDBFF && 0xDC00 <= a.charCodeAt(1) && a.charCodeAt(1) <= 0xDFFF;
+  const ac = aPair ? 0x10000 + (aHigh - 0xD800) * 0x400 + (a.charCodeAt(1) - 0xDC00) : aHigh;
+  const aStride = aPair ? 2 : 1;
+  const bHigh = b.charCodeAt(0);
+  const bPair = b.length >= 2 && 0xD800 <= bHigh && bHigh <= 0xDBFF && 0xDC00 <= b.charCodeAt(1) && b.charCodeAt(1) <= 0xDFFF;
+  const bc = bPair ? 0x10000 + (bHigh - 0xD800) * 0x400 + (b.charCodeAt(1) - 0xDC00) : bHigh;
+  const bStride = bPair ? 2 : 1;
+  const cHigh = c.charCodeAt(0);
+  const cPair = c.length >= 2 && 0xD800 <= cHigh && cHigh <= 0xDBFF && 0xDC00 <= c.charCodeAt(1) && c.charCodeAt(1) <= 0xDFFF;
+  const cc = cPair ? 0x10000 + (cHigh - 0xD800) * 0x400 + (c.charCodeAt(1) - 0xDC00) : cHigh;
+  const cStride = cPair ? 2 : 1;
+  if (ac === bc && bc === cc) {
+    return codepointCompareSpecTransitive(a.slice(aStride), b.slice(bStride), c.slice(cStride));
+  }
+  return true;
+}
+
+/**
  * Compare two strings by Unicode codepoint (stable dictionary order).
  * JS's lexicographic comparison is UTF-16 code-unit based, which orders
  * BMP chars above the surrogate range (e.g. U+FA3E) AFTER supplementary-plane
