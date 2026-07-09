@@ -7,6 +7,18 @@ dict-revised.sqlite3
 dict-revised.sqlite3.bz2
 parse.log
 
+# Pack pipeline outputs (default MOEDICT_PACK_OUTPUT=.)
+/a/
+/t/
+/h/
+/c/
+/pack/
+/ptck/
+/phck/
+/pcck/
+/lookup/
+/out/
+
 # Bun/TS
 node_modules/
 coverage/

@@ -10,7 +10,7 @@ const PACK_DIR: Record<Lang, string> = {
 };
 
 function escapeSpecialKey(filename: string): string {
-  let escaped = filename.replace(/=/g, '%3D');
+  const escaped = filename.replace(/=/g, '%3D');
   return escaped.replace(/[^\x00-\xff]/g, (ch) => {
     const code = ch.charCodeAt(0);
     return `%u${code.toString(16).toUpperCase().padStart(4, '0')}`;

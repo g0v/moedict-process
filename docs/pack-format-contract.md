@@ -105,5 +105,16 @@ property tests and golden-output regression tests:
 
 ## Known differences from legacy output
 
-None documented yet. Any intentional divergence (e.g., deterministic bug fixes or
-legacy nondeterminism) must be recorded here and accepted by the golden tests.
+1. **`a/index.json` / `a/xref.json`** — not yet produced by `bun run pack`. Legacy
+   index comes from the full title list; xref comes from translation-side data.
+   Golden tests skip these paths until the generators are ported.
+2. **Special `@*.json` / `=*.json` entry files** under `a/` — these are inputs to
+   `special2pack` (and category dumps), not outputs of the core pack run. The
+   pipeline writes aggregated `pack/@.txt` and `pack/=.txt` when those inputs
+   are present under `outputDir/a/`.
+3. **Payload key order** — the port uses `canonicalJson` (sorted object keys).
+   Legacy LiveScript/V8 `JSON.stringify` preserves insertion order. Byte-for-byte
+   golden diffs on entry payloads may fail until either the port matches insertion
+   order or fixtures are regenerated from the port.
+4. **Translations / audio_id** — require `dict-revised-translated.json` and
+   `dict-concised.audio.json`. Raw `dict-revised.json` packs without those fields.

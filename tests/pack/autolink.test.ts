@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { minifyKeys, escapeLegacy, unescapeLegacy, expandPuaTokens, buildLenToRegexMap, autolinkLine } from '~/pack/autolink';
+import { minifyKeys, escapeLegacy, unescapeLegacy, expandPuaTokens, autolinkLine } from '~/pack/autolink';
 
 describe('minifyKeys', () => {
   it('shortens known keys', () => {
