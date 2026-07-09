@@ -25,15 +25,16 @@ outputDir/
 
 ### Per-language directory (`a/`, `c/`, `h/`, `t/`)
 
-Each directory contains:
+Each directory contains its source-defined subset of:
 
 - `<title>.json` — one JSON file per entry, named by the entry title with `` ` ``
   and `~` removed. Files containing IDS characters (`⿰⿸⿺`) or duplicate NFD
   filenames are skipped by the writer.
-- `index.json` — list/index structure consumed by the frontend.
-- `xref.json` — cross-reference index (Mandarin only).
-- `=<category>.json` — category list files.
-- `@<radical>.json` — radical list files.
+- `index.json` — a language index where that language's source provides one.
+- `xref.json` — cross-language mapping: shipped for Mandarin and Hakka; its
+  translation-side correspondence records are not part of dictionary entries.
+- `=<category>.json` — Mandarin category list files.
+- `@<radical>.json` — Mandarin radical list files.
 
 ### Bucket files (`pack/`, `pcck/`, `phck/`, `ptck/`)
 
@@ -53,16 +54,22 @@ Each bucket file is a single-line JSON object keyed by escaped title:
 
 `bun run pack` reads from `inputDir`:
 
-- `dict-revised.json` — Mandarin source (same data historically symlinked as
-  `dict-revised.pua.json` in `moedict-webkit`).
+- `dict-revised-translated.json` — preferred Mandarin source when present; it
+  carries the generated English/French/German fields. The pipeline falls back
+  to `dict-revised.json` when translations are unavailable.
+- `dict-concised.audio.json` — optional Mandarin audio-id map, copied from the
+  legacy translation-side source.
 - `dict-twblg.json` and `dict-twblg-ext.json` — Taiwanese sources.
 - `dict-hakka.json` — Hakka source.
 - `dict-csld.json` — Cross-Strait source.
 
 ## Ordering and normalization
 
-- Titles are sorted by Unicode codepoint (grapheme cluster) where the pipeline
-  controls ordering, **not** by UTF-16 code unit.
+- Bucket lines and bucket-object keys use UTF-8 byte order, exactly matching
+  legacy `LC_ALL=C sort`.
+- `lenToRegex.*.json` construction retains legacy JavaScript `Array.sort()`
+  ordering (UTF-16 code units). `a/index.json` historically uses Chinese
+  (`zh-Hant`) collation and remains a separate generator.
 - Bucket filenames and per-entry `.json` filenames are NFD-normalized by the
   filesystem. The pack writer rejects filenames containing IDS characters
   (`⿰⿸⿺`) and rejects duplicate NFD filenames before both file write and bucket
@@ -109,31 +116,26 @@ property tests and golden-output regression tests:
 
 ## Known differences from legacy output
 
-1. **`a/index.json` / `a/xref.json`** — not yet produced by `bun run pack`. Legacy
-   index comes from the full title list; xref comes from translation-side data.
-   Golden tests skip these paths until the generators are ported.
+1. **`a/index.json` / `a/xref.json`** — not yet produced by `bun run pack`.
+   The legacy Mandarin index uses Chinese collation; xref requires Taiwanese
+   and Hakka correspondence records that are not retained in packed dictionary
+   entries. Golden tests skip these paths until their source-driven generators
+   are ported.
 2. **Special `@*.json` / `=*.json` entry files** under `a/` — these are inputs to
    `special2pack` (and category dumps), not outputs of the core pack run. The
    pipeline writes aggregated `pack/@.txt` and `pack/=.txt` when those inputs
    are present under `outputDir/a/`.
-3. **Payload key order** — the port uses `canonicalJson` (sorted object keys).
-   Legacy LiveScript/V8 `JSON.stringify` preserves insertion order. Byte-for-byte
-   golden diffs on entry payloads may fail until either the port matches insertion
-   order or fixtures are regenerated from the port.
-4. **Translations / audio_id** — require `dict-revised-translated.json` and
-   `dict-concised.audio.json`. Raw `dict-revised.json` packs without those fields.
-5. **PUA-free processed data (policy)** — pack output must not contain Private
-   Use Area codepoints. Two layers:
-   - **`IDS2UNI`** maps only IDS that still appear (as IDS or Unihan) in latest
-     a/c/t/h packs: `⿰𧾷百`→U+2C9B0 𬦰, `⿸疒哥`→U+308FB 𰣻,
-     `⿰亻恩`→U+2B8C6 𫣆, `⿰虫念`→U+2C816 𬠖. Dropped when absent from shipped
-     data (e.g. `⿺皮卜`/`𱱿`, `⿰金四`/`𳅵`).
-   - **`assertNoPua`** runs on every pack output surface: entry payloads before
-     `PackWriter.writeEntry`, special `@/=` payloads before `pack/@.txt`/`=.txt`,
-     category files, twblg `index.json`, and intermediate
-     `lenToRegex`/`precomputed` JSON. Unmapped MOE/source PUA (e.g. plane‑15
-     glyphs still present in `dict-revised.json`) **fails the pack** with
-     path/title context so mappings can be curated. No silent strip/`□`.
+3. **Payload key order** — no current difference: `canonicalJson` matches the
+   legacy `sort-json.pl` canonical-key serialization.
+4. **Translations / audio_id** — when `dict-revised-translated.json` and
+   `dict-concised.audio.json` are supplied, the pack port emits their legacy
+   translation fields and audio ids; raw Mandarin input intentionally omits
+   those enrichment fields.
+5. **Variant PUA policy** — all non-variant PUA remains a hard failure. The
+   curated 131 plane-15 MOE variant glyphs in `revised-dict.woff` are allowed
+   through unchanged for display; any other PUA is rejected with path/title
+   context. `IDS2UNI` converts known IDS forms to assigned Unicode before this
+   gate. No uncurated codepoint is silently stripped or rendered as `□`.
 
    Font coverage for Ext C/E/G/H is **render-side**. Fixtures from the pre-Unihan
    pack tree may still show PUA/`𬦀` until regenerated from a PUA-free source.

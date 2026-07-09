@@ -140,7 +140,7 @@ describe('golden output', () => {
         lang: 'a',
         inputDir: packInput!,
         outputDir: out,
-        concurrency: 1, // deterministic worker-order independence
+        concurrency: Number(process.env.MOEDICT_PACK_CONCURRENCY ?? 1),
       });
 
       const expectedRoot = process.env.LEGACY_FIXTURE_ROOT ?? FIXTURE_ROOT;

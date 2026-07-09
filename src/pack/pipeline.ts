@@ -13,7 +13,7 @@ import {
   IDS2UNI,
   assertNoPua,
 } from './autolink';
-import type { AutolinkJob, AutolinkResult } from './autolink-worker';
+import type { AutolinkJob, AutolinkResult, AutolinkCandidate } from './autolink-worker';
 import { PackWriter } from './io';
 import { bucketIndex, isSkippedTitle } from './bucket';
 import { cLocaleCompare, canonicalJson } from './serializer';
@@ -59,45 +59,6 @@ async function packLang(
   const entriesForPrefix = loadGrokEntries(lang, inputDir, IDS2UNI);
   const entriesForAutolink = loadGrokEntries(lang, inputDir, IDS2UNI);
 
-  // Mandarin audio injection (legacy autolink.ls lines 6-11, 84-90).
-  // The legacy audio-map is preprocessed: keys get （...）stripped to ., ，
-  // removed, （.*） suffix removed; a second bare-title key is also added.
-  // The loop `break`s on the first heteronym without b (not continue).
-  // title is stripped of (...) / （...） suffix (English) before audio lookup.
-  const audioMap = loadAudioMap(lang, inputDir);
-  if (audioMap) {
-    for (const entry of entriesForAutolink) {
-      let title = entry.t;
-      const heteronyms = entry.h as Array<Record<string, unknown>> | undefined;
-      if (!heteronyms) continue;
-      // Strip English paren suffix from title (legacy lines 79-83).
-      let englishIndex = title.indexOf('(');
-      if (englishIndex < 0) englishIndex = title.indexOf('（');
-      if (englishIndex >= 0) {
-        entry.english = title.slice(englishIndex + 1, -1);
-        title = title.slice(0, englishIndex);
-      }
-      for (let i = 0; i < heteronyms.length; i++) {
-        const b = heteronyms[i]?.['b'];
-        if (typeof b !== 'string' || b.length === 0) break;
-        const bNorm = b
-          .replace(/ /g, '\u3000')
-          .replace(/([ˇˊˋ])\u3000/g, '$1')
-          .replace(/ /g, '\u3000')
-          .replace(/^（.*?）/g, '')
-          .replace(/（.*?）/g, '');
-        const audioTitle = title.replace(/，/g, '');
-        const audioId =
-          i > 0
-            ? audioMap[`${audioTitle}.${bNorm}`]
-            : audioMap[`${audioTitle}.${bNorm}`] ??
-              (title.length > 1 ? audioMap[title] : undefined);
-        if (audioId !== undefined) {
-          heteronyms[i]!['='] = audioId;
-        }
-      }
-    }
-  }
 
   const trie = buildPrefixTrie(entriesForPrefix);
   const { lenToRegex, abbrevToTitle } = buildLenToRegex(trie, lang);
@@ -121,23 +82,34 @@ async function packLang(
     fs.writeFileSync(path.join(langOutputDir, 'precomputed.json'), content);
   }
 
-  // Deduplicate titles once on the main thread so workers don't need global seen state.
-  const uniqueEntries: GrokEntry[] = [];
+  // Legacy autolink computes dedupe and the bucket from the source title, then
+  // strips an English parenthesized suffix for the serialized title, file name,
+  // and pack key. Keep both identities explicitly through worker boundaries.
+  const audioMap = loadAudioMap(lang, inputDir);
+  const uniqueEntries: AutolinkCandidate[] = [];
   const seen = new Set<string>();
   for (const entry of entriesForAutolink) {
-    const title = entry.t;
-    if (title.length === 0) continue;
-    if (isSkippedTitle(title)) continue;
-    if (seen.has(title)) continue;
-    seen.add(title);
-    uniqueEntries.push(entry);
+    const sourceTitle = entry.t;
+    if (sourceTitle.length === 0) continue;
+    if (isSkippedTitle(sourceTitle)) continue;
+    if (seen.has(sourceTitle)) continue;
+    seen.add(sourceTitle);
+
+    const { title, english } = stripEnglishSuffix(sourceTitle);
+    if (english !== undefined) entry.english = english;
+    injectAudioId(entry, title, audioMap);
+    uniqueEntries.push({
+      entry,
+      bucket: bucketIndex(sourceTitle, lang),
+      title,
+    });
   }
 
   // CPU-bound LTM autolink: fan out entry chunks across workers (or serial for concurrency=1).
   const lines =
     concurrency === 1 || uniqueEntries.length < 64
-      ? autolinkSerial(lang, uniqueEntries, lenToRegex)
-      : await autolinkParallel(lang, uniqueEntries, lenToRegex, concurrency);
+      ? autolinkSerial(uniqueEntries, lenToRegex)
+      : await autolinkParallel(uniqueEntries, lenToRegex, concurrency);
 
   // Deterministic ordering + pack writes stay single-threaded.
   lines.sort(cLocaleCompare);
@@ -161,7 +133,6 @@ async function packLang(
     writer.writeEntry(lang, bucket, bucketTitle, fileTitle, expandedPayload);
   }
   writer.finalize();
-
   buildSpecialPacks(lang, outputDir);
   if (lang === 't') {
     const csvPath = path.join(inputDir, 'moedict-data-twblg/uni/詞目總檔.csv');
@@ -172,29 +143,25 @@ async function packLang(
 }
 
 function autolinkSerial(
-  lang: Lang,
-  entries: GrokEntry[],
+  entries: AutolinkCandidate[],
   lenToRegex: Record<number, string>,
 ): string[] {
   const regexMap = buildLenToRegexMap(lenToRegex);
   const lines: string[] = [];
-  for (const entry of entries) {
-    const title = entry.t;
-    const bucket = bucketIndex(title, lang);
+  for (const { entry, bucket, title } of entries) {
     lines.push(autolinkLine(bucket, title, entry, regexMap));
   }
   return lines;
 }
 
 async function autolinkParallel(
-  lang: Lang,
-  entries: GrokEntry[],
+  entries: AutolinkCandidate[],
   lenToRegex: Record<number, string>,
   concurrency: number,
 ): Promise<string[]> {
   const workers = Math.min(concurrency, entries.length);
   const chunks = splitChunks(entries, workers);
-  const jobs = chunks.map((chunk) => runAutolinkWorker({ lang, entries: chunk, lenToRegex }));
+  const jobs = chunks.map((chunk) => runAutolinkWorker({ entries: chunk, lenToRegex }));
   const results = await Promise.all(jobs);
   const lines: string[] = [];
   for (const result of results) {
@@ -313,16 +280,57 @@ function loadAudioMap(
     fs.readFileSync(audioPath, 'utf8'),
   );
   const map: Record<string, string> = {};
-  for (const [k, v] of Object.entries(raw)) {
-    const key = k.replace(/（.*?）/g, '').replace(/，/g, '');
+  for (const [rawKey, v] of Object.entries(raw)) {
+    // `autolink.ls`: k.replace(/\.（.*?）/, '.').replace(/，/g, '').replace(/（.*）.*/, '')
+    const key = rawKey
+      .replace(/\.（.*?）/, '.')
+      .replace(/，/g, '')
+      .replace(/（.*）.*/, '');
     map[key] = v;
-    const dotIdx = key.lastIndexOf('.');
-    if (dotIdx >= 0) {
-      const bare = key.slice(0, dotIdx);
-      if (bare.length > 1 && !(bare in map)) map[bare] = v;
-    }
+    // Legacy assigns unconditionally; later source entries override earlier ones.
+    map[key.replace(/\..*/, '')] = v;
   }
   return map;
+}
+
+function stripEnglishSuffix(title: string): {
+  title: string;
+  english: string | undefined;
+} {
+  let index = title.indexOf('(');
+  if (index < 0) index = title.indexOf('（');
+  if (index < 0) return { title, english: undefined };
+  return {
+    title: title.slice(0, index),
+    english: title.slice(index + 1, -1),
+  };
+}
+
+function injectAudioId(
+  entry: GrokEntry,
+  title: string,
+  audioMap: Record<string, string> | null,
+): void {
+  if (!audioMap) return;
+  const heteronyms = entry.h as Array<Record<string, unknown>> | undefined;
+  if (!heteronyms) return;
+  for (let i = 0; i < heteronyms.length; i++) {
+    const b = heteronyms[i]?.['b'];
+    if (typeof b !== 'string' || b.length === 0) break;
+    const normalizedBopomofo = b
+      .replace(/ /g, '\u3000')
+      .replace(/([ˇˊˋ])\u3000/g, '$1')
+      .replace(/ /g, '\u3000')
+      .replace(/^（.*）/, '')
+      .replace(/（.*）.*/, '');
+    const audioTitle = title.replace(/，/g, '');
+    const audioId =
+      i > 0
+        ? audioMap[`${audioTitle}.${normalizedBopomofo}`]
+        : audioMap[`${audioTitle}.${normalizedBopomofo}`] ??
+          (title.length > 1 ? audioMap[title] : undefined);
+    if (audioId) heteronyms[i]!['='] = audioId;
+  }
 }
 
 export { splitChunks }
