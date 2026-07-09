@@ -11,6 +11,8 @@
     "to-sqlite": "bun run src/bin/to-sqlite.ts",
     "pack": "bun run src/bin/pack.ts",
     "verify": "lsc check --backend=dafny",
+    "verify:gen": "lsc gen --backend=dafny",
+    "verify:check": "lsc check --backend=dafny",
     "verify:regen": "lsc check --backend=dafny --regen",
     "test": "bun test",
     "test:watch": "bun test --watch",
