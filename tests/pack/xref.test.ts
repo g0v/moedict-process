@@ -35,6 +35,9 @@ describe('writeXrefs', () => {
     writeXrefs(input, out, new Set(['同僚']));
     expect(readJson(out, 'a/xref.json')).toEqual({ t: { 同僚: '同事,', 萌: '發穎' } });
     expect(readJson(out, 't/xref.json')).toEqual({ a: { 同事: '同僚', 同僚: '', 發穎: '萌' } });
+    expect(fs.readFileSync(path.join(out, 'a', 'xref.json'), 'utf8')).toBe(
+      '{"t":{"同僚":"同事,","萌":"發穎"}}\n',
+    );
   });
 
   it('normalizes Hakka tokens and preserves M2H/H2M asymmetry', () => {

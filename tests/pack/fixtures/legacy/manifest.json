@@ -1416,13 +1416,13 @@
   },
   {
     "path": "a/index.json",
-    "size": 1773473,
-    "sha256": "0035e09d3eecaf1863de55d20c867fb549626125dff1fb313e815261c0f83917"
+    "size": 1773135,
+    "sha256": "cd1da5269d48a690009a877449e965940209f48cd5592249f6c74aaa758efbb6"
   },
   {
     "path": "a/xref.json",
-    "size": 392570,
-    "sha256": "d3dae4dd466806b26f6ca1dba447f1021df25c3f2439a0a9aaa4732144b61afd"
+    "size": 390393,
+    "sha256": "e1d274170090eb62a096066f3468c5b01fabf76447098375b0b0f0b82fc699d4"
   },
   {
     "path": "h/=諺語.json",
@@ -1436,8 +1436,8 @@
   },
   {
     "path": "h/xref.json",
-    "size": 196282,
-    "sha256": "fa29cfed4affa77588e9fce0021ce2b788f719c025c60cb9a77e66876bf54057"
+    "size": 197113,
+    "sha256": "bd7887dc5f95e4116df8b5509c76e642844c45bf0086c24d40c0b768d6a379fe"
   },
   {
     "path": "pack/0.txt",
@@ -1493,5 +1493,10 @@
     "path": "t/index.json",
     "size": 239306,
     "sha256": "629207a7ce896c502f3d927b0d44f124cd78457767775c24da2543e14c3acaae"
+  },
+  {
+    "path": "t/xref.json",
+    "size": 266028,
+    "sha256": "150b3ffb411c5a74939d6dbea6901e1150ca37984886db6ef8049c60a75539c7"
   }
 ]

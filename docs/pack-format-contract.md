@@ -35,7 +35,8 @@ Each directory contains its source-defined subset of:
   titles in deterministic Unicode scalar order; Taiwanese retains its source
   CSV-driven index generator.
 - `xref.json` — cross-language mapping, shipped for Mandarin, Taiwanese, and
-  Hakka. Its correspondence records are not part of dictionary entries.
+  Hakka. The pack generates it from optional explicit correspondence side inputs
+  (`x-華語對照表.csv` and `work-in-progress.json`), not dictionary entries.
 - `=<category>.json` — Mandarin category list files.
 - `@<radical>.json` — Mandarin radical list files.
 
@@ -119,10 +120,12 @@ property tests and golden-output regression tests:
 
 ## Known differences from legacy output
 
-1. **`a/xref.json`, `h/xref.json`, and `t/xref.json`** — not yet produced by
-   `bun run pack`. Mandarin/Taiwanese xref requires `x-華語對照表.csv`; Hakka
-   xref requires historical `work-in-progress.json`. Golden tests skip only
-   these exact paths until their source-driven generators are ported.
+1. **Legacy xref object order and coverage** — the Perl xref generator wrote
+   hash order noncanonically, and archived output contains mappings absent from
+   recoverable correspondence snapshots. The committed a/h/t xref fixtures were
+   regenerated from the pinned source snapshots named in
+   `tests/pack/fixtures/legacy/README.md`; golden tests compare parsed keys and
+   values against that source-contract oracle, not the stale legacy object.
 2. **Special `@*.json` / `=*.json` entry files** under `a/` — these are inputs to
    `special2pack` (and category dumps), not outputs of the core pack run. The
    pipeline writes aggregated `pack/@.txt` and `pack/=.txt` when those inputs

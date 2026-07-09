@@ -57,11 +57,6 @@ function diffLines(expected: string, actual: string): string {
 
 function shouldSkipManifestPath(rel: string): string | null {
   const base = path.basename(rel);
-  // Cross-language correspondence side inputs are not yet wired. Exact paths
-  // keep generated Mandarin, Taiwanese, and Hakka indexes comparable.
-  if (rel === 'a/xref.json' || rel === 'h/xref.json' || rel === 't/xref.json') {
-    return 'legacy xref metadata not produced by current pack pipeline';
-  }
   // Special entry JSONs are inputs to special2pack, not pack outputs of runPack(a).
   if (base.startsWith('@') || base.startsWith('=')) {
     return 'special @/= entry JSONs are pack inputs, not pack outputs';
@@ -84,8 +79,13 @@ function compareManifestFiles(
   let skipped = 0;
 
   for (const { path: rel } of entries) {
-    // Golden harness focuses on Mandarin a/ + pack/ for now.
-    if (!rel.startsWith('a/') && !rel.startsWith('pack/')) continue;
+    // Pack payloads plus every metadata file emitted by a Mandarin pack run.
+    if (
+      !rel.startsWith('a/') &&
+      !rel.startsWith('pack/') &&
+      rel !== 't/xref.json' &&
+      rel !== 'h/xref.json'
+    ) continue;
 
     const skipReason = shouldSkipManifestPath(rel);
     if (skipReason) {
@@ -108,9 +108,13 @@ function compareManifestFiles(
     const e = fs.readFileSync(expectedPath, 'utf8');
     const a = fs.readFileSync(actualPath, 'utf8');
     if (rel === 'a/index.json' || rel === 'h/index.json') {
+      const expectedIndex = [...new Set(JSON.parse(e) as string[])].sort(compareUnicodeScalars);
       const actualIndex = JSON.parse(a) as string[];
       expect([...new Set(actualIndex)]).toEqual(actualIndex);
       expect([...actualIndex].sort(compareUnicodeScalars)).toEqual(actualIndex);
+      expect(actualIndex).toEqual(expectedIndex);
+    } else if (rel === 'a/xref.json' || rel === 'h/xref.json' || rel === 't/xref.json') {
+      expect(JSON.parse(a)).toEqual(JSON.parse(e));
     } else if (e !== a) {
       mismatches.push(`mismatch: ${rel}\n${diffLines(e, a)}`);
     }
@@ -131,13 +135,13 @@ const hasPackInput =
   !!packInput && fs.existsSync(path.join(packInput, 'dict-revised.json'));
 const goldenIt = hasPackInput ? it : it.skip;
 describe('golden manifest skip policy', () => {
-  it('skips only metadata outputs the core pipeline does not generate', () => {
+  it('does not skip generated index or cross-reference metadata', () => {
     expect(shouldSkipManifestPath('a/index.json')).toBeNull();
-    expect(shouldSkipManifestPath('a/xref.json')).not.toBeNull();
+    expect(shouldSkipManifestPath('a/xref.json')).toBeNull();
     expect(shouldSkipManifestPath('h/index.json')).toBeNull();
-    expect(shouldSkipManifestPath('h/xref.json')).not.toBeNull();
+    expect(shouldSkipManifestPath('h/xref.json')).toBeNull();
     expect(shouldSkipManifestPath('t/index.json')).toBeNull();
-    expect(shouldSkipManifestPath('t/xref.json')).not.toBeNull();
+    expect(shouldSkipManifestPath('t/xref.json')).toBeNull();
   });
 });
 
