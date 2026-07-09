@@ -137,12 +137,45 @@ export function findPuaCodePoints(text: string): number[] {
 }
 
 /**
- * Fail hard if processed pack text still contains PUA.
- * Unmapped MOE/source PUA must be curated to assigned Unihan (or IDS),
- * not silently stripped — font coverage is a render-side concern.
+ * The 131 MOE plane-15 PUA variant-glyph codepoints — the full cmap of MOE's
+ * 標楷體2 / revised-dict.woff (U+F0000–FFFFF slots the font defines). These are
+ * deliberate MOE-font variant glyphs with no canonical Unicode/IDS mapping, used
+ * both as headword titles (110 of them) and inline within definitions. They are
+ * NOT "real" characters; the PUA-free policy targets real (non-variant) PUA, so
+ * these pass through (rendered by the MOE font on the display side). The set is
+ * FIXED/curated from the font cmap — do not generate it from source at runtime
+ * (that would silently bless future bad PUA). Any PUA codepoint NOT in this set
+ * (i.e. not a MOE-font variant glyph) still fails assertNoPua and must be curated
+ * to assigned Unihan (or IDS).
+ */
+const VARIANT_PUA_ALLOWLIST: ReadonlySet<number> = new Set<number>([
+  0xf0009, 0xf003e, 0xf00e8, 0xf01f9, 0xf05a2, 0xf0605, 0xf06eb, 0xf07ff,
+  0xf0a33, 0xf0ac2, 0xf0b78, 0xf0bc1, 0xf0ca2, 0xf0efe, 0xf0fc0, 0xf1391,
+  0xf148e, 0xf15fd, 0xf1657, 0xf16ca, 0xf17c2, 0xf17f6, 0xf18b5, 0xf1c6c,
+  0xf24e7, 0xf25e6, 0xf26ed, 0xf295b, 0xf3b19, 0xf3e71, 0xf3ef1, 0xf4033,
+  0xf448b, 0xf4a4e, 0xf4ea3, 0xf52bc, 0xf5386, 0xf54bd, 0xf5736, 0xf585d,
+  0xf5938, 0xf59dd, 0xf5e66, 0xf6063, 0xf6095, 0xf6196, 0xf6197, 0xf66ca,
+  0xf6872, 0xf6c68, 0xf6c85, 0xf6d47, 0xf6f84, 0xf719f, 0xf7205, 0xf73c4,
+  0xf73d3, 0xf7ba3, 0xf7d55, 0xf7e81, 0xf828d, 0xf8566, 0xf8720, 0xf892a,
+  0xf89fb, 0xf8a56, 0xf8dad, 0xf8fae, 0xf9006, 0xf945c, 0xf95b0, 0xf9701,
+  0xf977a, 0xf989d, 0xf991d, 0xf9b33, 0xf9d81, 0xf9e75, 0xf9f6d, 0xf9f85,
+  0xf9fac, 0xf9fe0, 0xfa7d1, 0xfa868, 0xfaafc, 0xfabfa, 0xfac32, 0xfac33,
+  0xfac34, 0xfaff6, 0xfb18d, 0xfb407, 0xfb464, 0xfb525, 0xfb575, 0xfb578,
+  0xfb57b, 0xfbfb9, 0xfc05a, 0xfc1bb, 0xfcb51, 0xfcd7a, 0xfce75, 0xfce7c,
+  0xfd166, 0xfd185, 0xfd1c5, 0xfd617, 0xfd660, 0xfd679, 0xfd734, 0xfd85a,
+  0xfd98e, 0xfd9e8, 0xfdb3f, 0xfdb50, 0xfdd9e, 0xfdda4, 0xfde3d, 0xfdf55,
+  0xfdfb1, 0xffbab, 0xffbae, 0xffbbb, 0xffc82, 0xffd36, 0xffd70, 0xffd9b,
+  0xffdd0, 0xffefd, 0xfff46,
+]);
+
+/**
+ * Fail hard if processed pack text still contains PUA that is NOT a curated
+ * MOE variant glyph (one of the 131 in the font cmap). Those pass through
+ * by the MOE font display-side); all other PUA must be curated to assigned
+ * Unihan (or IDS), not silently stripped.
  */
 export function assertNoPua(text: string, context: string): void {
-  const pua = findPuaCodePoints(text);
+  const pua = findPuaCodePoints(text).filter((cp) => !VARIANT_PUA_ALLOWLIST.has(cp));
   if (pua.length === 0) return;
   const labels = pua.map((cp) => `U+${cp.toString(16).toUpperCase()}`);
   throw new Error(
