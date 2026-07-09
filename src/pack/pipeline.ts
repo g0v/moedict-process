@@ -19,6 +19,7 @@ import { bucketIndex, isSkippedTitle } from './bucket';
 import { cLocaleCompare, canonicalJson } from './serializer';
 import { buildSpecialPacks, buildTwblgIndex, buildCategoryFiles } from './special';
 import { writeGeneratedIndex } from './index';
+import { writeXrefs } from './xref';
 
 export interface PackOptions {
   lang: Lang | 'all';
@@ -138,6 +139,9 @@ async function packLang(
   writer.finalize();
   if (lang === 'a' || lang === 'h') {
     writeGeneratedIndex(lang, acceptedTitles, outputDir);
+  }
+  if (lang === 'a') {
+    writeXrefs(inputDir, outputDir, new Set(acceptedTitles));
   }
   buildSpecialPacks(lang, outputDir);
   if (lang === 't') {
