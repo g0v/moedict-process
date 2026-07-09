@@ -39,18 +39,32 @@ function terms(value: string): string[] {
 function normalizeTitle(value: string): string {
   return value.replace(/[【】]/g, '');
 }
-function linkMandarin(text: string, titles: readonly string[]): string {
+function buildLinkCandidates(titles: ReadonlySet<string>): Map<string, string[]> {
+  const candidates = new Map<string, string[]>();
+  for (const title of titles) {
+    const first = Array.from(title)[0];
+    if (first === undefined) continue;
+    const group = candidates.get(first);
+    if (group) group.push(title);
+    else candidates.set(first, [title]);
+  }
+  for (const group of candidates.values()) {
+    group.sort((left, right) => codepointCount(right) - codepointCount(left) || (left < right ? -1 : left > right ? 1 : 0));
+  }
+  return candidates;
+}
+
+function linkMandarin(text: string, candidates: ReadonlyMap<string, readonly string[]>): string {
   let linked = '';
   for (let offset = 0; offset < text.length; ) {
-    const match = titles.find((title) => text.startsWith(title, offset));
+    const first = String.fromCodePoint(text.codePointAt(offset)!);
+    const match = candidates.get(first)?.find((title) => text.startsWith(title, offset));
     if (match) {
       linked += `\`${match}~`;
       offset += match.length;
     } else {
-      const point = text.codePointAt(offset)!;
-      const character = String.fromCodePoint(point);
-      linked += character;
-      offset += character.length;
+      linked += first;
+      offset += first.length;
     }
   }
   return linked;
@@ -62,9 +76,7 @@ export function writeXrefs(
   mandarinTitles: ReadonlySet<string>,
 ): void {
   const a: Record<string, StringMap> = {};
-  const linkableTitles = [...mandarinTitles].sort(
-    (left, right) => codepointCount(right) - codepointCount(left) || left.localeCompare(right),
-  );
+  const linkCandidates = buildLinkCandidates(mandarinTitles);
 
   const twblgPath = path.join(inputDir, 'x-華語對照表.csv');
   if (fs.existsSync(twblgPath)) {
@@ -95,7 +107,7 @@ export function writeXrefs(
       if (!title || !correspondence) continue;
       for (const target of terms(correspondence)) {
         if (mandarinTitles.has(target)) append(mToH, target, target === title ? '' : title);
-        const linked = linkMandarin(target, linkableTitles);
+        const linked = linkMandarin(target, linkCandidates);
         append(hToM, title, linked === `\`${title}~` ? '' : linked);
       }
     }
