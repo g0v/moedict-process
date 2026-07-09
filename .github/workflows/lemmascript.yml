@@ -1,0 +1,19 @@
+name: LemmaScript
+on: [push, pull_request]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: setup dafny
+        uses: dafny-lang/setup-dafny-action@v1
+        with:
+          dafny-version: '4.9.0'
+      - run: npm install -g lemmascript
+      - run: bun install
+      - run: bun run build
+      - run: bun run verify
+      - run: bun test

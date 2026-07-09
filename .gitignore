@@ -14,3 +14,10 @@ reports/
 .stryker-tmp/
 tsconfig.tsbuildinfo
 bun.lock.backup
+# LemmaScript/Dafny/Lean generated proof artifacts
+*.dfy.gen
+*.dfy
+*.types.lean
+*.spec.lean
+*.def.lean
+*.proof.lean
