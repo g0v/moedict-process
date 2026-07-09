@@ -36,28 +36,30 @@ export function minifyKeys(json: string): string {
   return result;
 }
 
-/** Map used by json2prefix.ls for prefix/lenToRegex generation. */
-export const PUA2UNI_JSON2PREFIX: Record<string, string> = {
-  '⿰𧾷百': '𬦀',
-  '⿸疒哥': '󿗧',
+/**
+ * IDS → assigned Unihan codepoints for moedict processed data.
+ * Goal: PUA-free output. Font coverage is a render-side concern.
+ *
+ *   ⿰𧾷百 → U+2C9B0 𬦰 (Ext E; not near-neighbor U+2C980 𬦀)
+ *   ⿸疒哥 → U+308FB 𰣻 (Ext G)
+ *   ⿰亻恩 → U+2B8C6 𫣆 (Ext C)
+ *   ⿰虫念 → U+2C816 𬠖 (Ext E)
+ *   ⿺皮卜 → U+31C7E 𱱾 (Ext H)
+ *
+ * Prefix and autolink stages share this map (legacy dual PUA maps collapsed).
+ */
+export const IDS2UNI: Record<string, string> = {
+  '⿰𧾷百': '𬦰',
+  '⿸疒哥': '𰣻',
   '⿰亻恩': '𫣆',
   '⿰虫念': '𬠖',
-  '⿺皮卜': '󿕅',
+  '⿺皮卜': '𱱾',
 };
 
-/** Map used by autolink.ls for payload generation. Differs for three IDS strings. */
-export const PUA2UNI_AUTOLINK: Record<string, string> = {
-  '⿰𧾷百': '󾜅',
-  '⿸疒哥': '󿗧',
-  '⿰亻恩': '󿌇',
-  '⿰虫念': '󿑂',
-  '⿺皮卜': '󿕅',
-};
-
-export function grokJson(raw: string, puaMap: Record<string, string>): GrokEntry[] {
+export function grokJson(raw: string, idsMap: Record<string, string> = IDS2UNI): GrokEntry[] {
   const grokked = minifyKeys(raw).replace(
     /[⿰⿸⿺](?:𧾷|.)./g,
-    (ids) => puaMap[ids] ?? ids,
+    (ids) => idsMap[ids] ?? ids,
   );
   return JSON.parse(grokked) as GrokEntry[];
 }

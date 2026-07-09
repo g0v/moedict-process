@@ -118,3 +118,19 @@ property tests and golden-output regression tests:
    order or fixtures are regenerated from the port.
 4. **Translations / audio_id** — require `dict-revised-translated.json` and
    `dict-concised.audio.json`. Raw `dict-revised.json` packs without those fields.
+5. **PUA-free IDS → Unihan (policy)** — processed pack data must not emit Private
+   Use Area codepoints. `IDS2UNI` maps known IDS sequences to assigned Unihan:
+   - `⿰𧾷百` → **U+2C9B0 𬦰** (Ext E; not U+2C980 𬦀)
+   - `⿸疒哥` → **U+308FB 𰣻** (Ext G)
+   - `⿰亻恩` → **U+2B8C6 𫣆** (Ext C)
+   - `⿰虫念` → **U+2C816 𬠖** (Ext E)
+   - `⿺皮卜` → **U+31C7E 𱱾** (Ext H)
+
+   Prefix and autolink stages share this single map (legacy dual PUA maps
+   collapsed). Font coverage for Ext C/E/G/H is a **render-side** concern, not a
+   reason to keep PUA in stored data. Fixtures captured from the pre-Unihan pack
+   tree may still show PUA/`𬦀` until regenerated.
+6. **Phase 5 (`moedict-webkit` retirement) is blocked** until a full
+   `MOEDICT_PACK_INPUT` golden pass and downstream staging are green. Do not
+   delete pack Makefile targets, close Dependabot PRs as “retired”, or archive
+   the repo while rollback still depends on the legacy toolchain.

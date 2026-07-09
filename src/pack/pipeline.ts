@@ -8,8 +8,7 @@ import {
   expandPuaTokens,
   buildLenToRegexMap,
   autolinkLine,
-  PUA2UNI_JSON2PREFIX,
-  PUA2UNI_AUTOLINK,
+  IDS2UNI,
 } from './autolink';
 import type { AutolinkJob, AutolinkResult } from './autolink-worker';
 import { PackWriter } from './io';
@@ -51,8 +50,8 @@ async function packLang(
   outputDir: string,
   concurrency: number,
 ): Promise<void> {
-  const entriesForPrefix = loadGrokEntries(lang, inputDir, PUA2UNI_JSON2PREFIX);
-  const entriesForAutolink = loadGrokEntries(lang, inputDir, PUA2UNI_AUTOLINK);
+  const entriesForPrefix = loadGrokEntries(lang, inputDir, IDS2UNI);
+  const entriesForAutolink = loadGrokEntries(lang, inputDir, IDS2UNI);
 
   const trie = buildPrefixTrie(entriesForPrefix);
   const { lenToRegex, abbrevToTitle } = buildLenToRegex(trie, lang);
