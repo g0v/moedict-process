@@ -44,7 +44,7 @@ export function minifyKeys(json: string): string {
  *   ⿸疒哥 → U+308FB 𰣻 (Ext G)
  *   ⿰亻恩 → U+2B8C6 𫣆 (Ext C)
  *   ⿰虫念 → U+2C816 𬠖 (Ext E)
- *   ⿺皮卜 → U+31C7E 𱱾 (Ext H)
+ *   ⿺皮卜 → U+31C7F 𱱿 (Ext H; 皮+卜, TB-723F — not U+31C7E 𱱾)
  *
  * Prefix and autolink stages share this map (legacy dual PUA maps collapsed).
  */
@@ -53,7 +53,7 @@ export const IDS2UNI: Record<string, string> = {
   '⿸疒哥': '𰣻',
   '⿰亻恩': '𫣆',
   '⿰虫念': '𬠖',
-  '⿺皮卜': '𱱾',
+  '⿺皮卜': '𱱿',
 };
 
 export function grokJson(raw: string, idsMap: Record<string, string> = IDS2UNI): GrokEntry[] {

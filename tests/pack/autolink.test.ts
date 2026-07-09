@@ -47,8 +47,8 @@ describe('IDS2UNI PUA-free Unihan map', () => {
     expect(IDS2UNI['⿰虫念']).toBe('𬠖');
     expect('𬠖'.codePointAt(0)).toBe(0x2c816);
 
-    expect(IDS2UNI['⿺皮卜']).toBe('𱱾');
-    expect('𱱾'.codePointAt(0)).toBe(0x31c7e);
+    expect(IDS2UNI['⿺皮卜']).toBe('𱱿');
+    expect('𱱿'.codePointAt(0)).toBe(0x31c7f);
   });
 
   it('emits no PUA codepoints', () => {
@@ -67,13 +67,13 @@ describe('IDS2UNI PUA-free Unihan map', () => {
       { title: '⿺皮卜', heteronyms: [] },
     ]);
     const entries = grokJson(raw, IDS2UNI);
-    expect(entries.map((e) => e.t)).toEqual(['𬦰', '𰣻', '𫣆', '𬠖', '𱱾']);
+    expect(entries.map((e) => e.t)).toEqual(['𬦰', '𰣻', '𫣆', '𬠖', '𱱿']);
   });
 });
 
 describe('assertNoPua', () => {
   it('accepts assigned Unihan and ASCII', () => {
-    expect(() => assertNoPua('中央𬦰𰣻𱱾', 'ok')).not.toThrow();
+    expect(() => assertNoPua('中央𬦰𰣻𱱿', 'ok')).not.toThrow();
     expect(findPuaCodePoints('中央')).toEqual([]);
   });
 
