@@ -56,15 +56,17 @@ function diffLines(expected: string, actual: string): string {
 
 function shouldSkipManifestPath(rel: string): string | null {
   const base = path.basename(rel);
-  // The core pipeline does not yet generate Mandarin or Hakka index/xref
-  // metadata. Exact paths keep generated Taiwanese metadata comparable.
+  // The core pipeline does not yet generate Mandarin/Hakka index metadata or
+  // any of the three legacy xref directions. Exact paths keep generated
+  // Taiwanese index metadata comparable.
   if (
     rel === 'a/index.json' ||
     rel === 'a/xref.json' ||
     rel === 'h/index.json' ||
-    rel === 'h/xref.json'
+    rel === 'h/xref.json' ||
+    rel === 't/xref.json'
   ) {
-    return 'Mandarin/Hakka index/xref not produced by current pack pipeline';
+    return 'legacy index/xref metadata not produced by current pack pipeline';
   }
   // Special entry JSONs are inputs to special2pack, not pack outputs of runPack(a).
   if (base.startsWith('@') || base.startsWith('=')) {
@@ -138,7 +140,7 @@ describe('golden manifest skip policy', () => {
     expect(shouldSkipManifestPath('h/index.json')).not.toBeNull();
     expect(shouldSkipManifestPath('h/xref.json')).not.toBeNull();
     expect(shouldSkipManifestPath('t/index.json')).toBeNull();
-    expect(shouldSkipManifestPath('t/xref.json')).toBeNull();
+    expect(shouldSkipManifestPath('t/xref.json')).not.toBeNull();
   });
 });
 

@@ -31,8 +31,10 @@ Each directory contains its source-defined subset of:
   and `~` removed. Files containing IDS characters (`⿰⿸⿺`) or duplicate NFD
   filenames are skipped by the writer.
 - `index.json` — a language index where that language's source provides one.
-- `xref.json` — cross-language mapping: shipped for Mandarin and Hakka; its
-  translation-side correspondence records are not part of dictionary entries.
+  The legacy Mandarin and Hakka index files are separately versioned metadata,
+  not outputs of the historical pack commands.
+- `xref.json` — cross-language mapping, shipped for Mandarin, Taiwanese, and
+  Hakka. Its correspondence records are not part of dictionary entries.
 - `=<category>.json` — Mandarin category list files.
 - `@<radical>.json` — Mandarin radical list files.
 
@@ -68,8 +70,8 @@ Each bucket file is a single-line JSON object keyed by escaped title:
 - Bucket lines and bucket-object keys use UTF-8 byte order, exactly matching
   legacy `LC_ALL=C sort`.
 - `lenToRegex.*.json` construction retains legacy JavaScript `Array.sort()`
-  ordering (UTF-16 code units). `a/index.json` historically uses Chinese
-  (`zh-Hant`) collation and remains a separate generator.
+  ordering (UTF-16 code units). Legacy `a/index.json` was a separately
+  maintained checked-in artifact; the pack command did not generate it.
 - Bucket filenames and per-entry `.json` filenames are NFD-normalized by the
   filesystem. The pack writer rejects filenames containing IDS characters
   (`⿰⿸⿺`) and rejects duplicate NFD filenames before both file write and bucket
@@ -116,12 +118,12 @@ property tests and golden-output regression tests:
 
 ## Known differences from legacy output
 
-1. **`a/index.json`, `a/xref.json`, `h/index.json`, and `h/xref.json`** — not
-   yet produced by `bun run pack`. The legacy Mandarin index uses Chinese
-   collation; Mandarin/Taiwanese xref requires `x-華語對照表.csv`, while the
-   Hakka index/xref requires the historical `work-in-progress.json` side input.
-   Golden tests skip only these exact paths until their source-driven
-   generators are ported.
+1. **`a/index.json`, `a/xref.json`, `h/index.json`, `h/xref.json`, and
+   `t/xref.json`** — not yet produced by `bun run pack`. The legacy Mandarin
+   and Hakka index files were separately versioned artifacts. Mandarin/Taiwanese
+   xref requires `x-華語對照表.csv`; Hakka xref requires historical
+   `work-in-progress.json`. Golden tests skip only these exact paths until
+   their source-driven generators are ported.
 2. **Special `@*.json` / `=*.json` entry files** under `a/` — these are inputs to
    `special2pack` (and category dumps), not outputs of the core pack run. The
    pipeline writes aggregated `pack/@.txt` and `pack/=.txt` when those inputs
