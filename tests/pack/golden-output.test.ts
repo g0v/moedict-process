@@ -19,10 +19,9 @@ function loadManifest(root: string): ManifestEntry[] {
   if (fs.existsSync(manifestPath)) {
     return JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as ManifestEntry[];
   }
-  // LEGACY_FIXTURE_ROOT without manifest: walk a/ and pack/ only.
-  return walk(root)
-    .filter((rel) => rel.startsWith('a/') || rel.startsWith('pack/'))
-    .map((rel) => ({ path: rel }));
+  // An external legacy root has no subset contract; collect every path and let
+  // the per-run selector decide which generated outputs apply.
+  return walk(root).map((rel) => ({ path: rel }));
 }
 
 function walk(dir: string, base = dir): string[] {
@@ -146,6 +145,26 @@ describe('golden manifest skip policy', () => {
 });
 
 describe('golden output', () => {
+  it('loads every path from an external fixture root without a manifest', () => {
+    const root = fs.mkdtempSync(path.join(tmpdir(), 'manifestless-fixture-'));
+    try {
+      for (const rel of ['a/index.json', 'h/index.json', 't/index.json', 't/xref.json', 'c/index.json', 'pack/0.txt']) {
+        const file = path.join(root, rel);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, 'fixture');
+      }
+      expect(loadManifest(root).map((entry) => entry.path).sort()).toEqual([
+        'a/index.json',
+        'c/index.json',
+        'h/index.json',
+        'pack/0.txt',
+        't/index.json',
+        't/xref.json',
+      ]);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
   it('has a committed fixture manifest', () => {
     expect(fs.existsSync(MANIFEST_PATH)).toBe(true);
     const entries = loadManifest(FIXTURE_ROOT);
