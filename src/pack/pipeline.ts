@@ -21,6 +21,7 @@ import { cLocaleCompare, canonicalJson } from './serializer';
 import { buildSpecialPacks, buildTwblgIndex, buildCategoryFiles } from './special';
 import { writeGeneratedIndex } from './index';
 import { writeXrefs } from './xref';
+import { normalizeCsldPua } from './csld-pua';
 
 export interface PackOptions {
   lang: Lang | 'all';
@@ -271,7 +272,16 @@ function loadGrokEntries(
       throw new Error(`Required source file not found: ${p}`);
     }
     const raw = fs.readFileSync(p, 'utf8');
-    const grokked = grokJson(raw, puaMap);
+    // Cross-Strait source carries three curated Big5-era PUA codepoints,
+    // stored either as literal chars or as JSON \uXXXX escapes (csld2json
+    // writes ensure_ascii output). A parse-time string reviver sees decoded
+    // literals for both encodings; anything uncurated flows through to the
+    // assertNoPua hard gate.
+    const grokked = grokJson(
+      raw,
+      puaMap,
+      lang === 'c' ? normalizeCsldPua : undefined,
+    );
     for (const entry of grokked) all.push(entry);
   }
   return all;
@@ -312,7 +322,9 @@ function stripEnglishSuffix(title: string): {
 } {
   let index = title.indexOf('(');
   if (index < 0) index = title.indexOf('（');
-  if (index < 0) return { title, english: undefined };
+  // Component-description titles like （土+夅） start with a paren; only strip a
+  // trailing English gloss suffix (e.g. 詞 (word)), not the whole headword.
+  if (index <= 0) return { title, english: undefined };
   return {
     title: title.slice(0, index),
     english: title.slice(index + 1, -1),

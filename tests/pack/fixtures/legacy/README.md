@@ -40,6 +40,51 @@ drift in `dict-hakka.json` since the original capture:
   The missing entry (`⿺皮卜`, audio_id 15287) is a minor Hakka word for
   "skin bump from insect bite."
 
+#### c/ and pcck/ fixtures (Cross-Strait)
+
+Captured 2026-07-10 from the deployed `~/w/moedict.tw/data/dictionary/{c,pcck}`
+tree — a ~2026-04 output of the legacy Perl pipeline (the `c` target was
+best-effort in the webkit Makefile: `-perl link2pack.pl c`). Subset: `c/index.json`,
+`c/=.json`, sample `c/@*.json` radical and `c/=*.json` category files, six
+representative `pcck/*.txt` buckets, and individual `c/<title>.json` entries.
+
+The port's `c` run consumes an enriched `dict-csld.json` **pinned to the
+fixture era**: `moedict-data-csld` commit
+`f7bd225d88d76edbb21f79b6ada4e3ee84de0beb` ("Latest revision from CSLD
+editor" — the last commit before the `語本/語出` editorial wave landed in
+`ec6afd1`), enriched by `scripts/translation/csld2json.py` with the
+fixture-era `cfdict` translation inputs preserved in the deployed
+`data/dictionary/translation-data/`:
+
+```sh
+git -C moedict-data-csld show f7bd225:dict-csld.json > /tmp/csld-pinned-raw.json
+python3 scripts/translation/csld2json.py \
+  --cedict <cedict.txt> --cfdict <deployed cfdict.txt> --handedict <handedict.txt> \
+  --moedict /tmp/csld-pinned-raw.json \
+  --output "$MOEDICT_PACK_INPUT/dict-csld.json"
+```
+
+A full-fixture scan against this pinned input shows **zero** content drift
+(HEAD `a1e9119` by contrast drifts on 432 surfaces: added citations,
+reordered/removed definitions, reading reformatting). Running the c golden
+against a newer edition is an input error, not tolerated drift.
+
+Comparison mode is **structural** (`compareCEntryStructurally`), strict on
+content, tolerant only of representation:
+
+- **PUA curation** — fixture-era `dict-csld.json` carries three Big5-era PUA
+  codepoints that the legacy pipeline passed through verbatim (visible in the
+  captured `pcck/` buckets). The port normalizes them to assigned Unicode at
+  source load (`src/pack/csld-pua.ts`): `U+E38F → 著` (學舌 example quote),
+  `U+E840 → 䓖` (alt form of 藭/芎藭), `U+F8F8 → removed` (trailing bopomofo
+  artifact in 峿/樔). All affected entries are retained; any uncurated PUA
+  still hard-fails `assertNoPua`.
+- **Autolink markup** (`` ` ``/`~`) is stripped on both sides before
+  comparison; translation-era enrichment fields are the only tolerated
+  payload divergence. Titles, heteronym ids, readings, and ordered
+  definition text must match, and every compared port payload must be
+  PUA-free.
+
 
 ## Scope
 
@@ -51,6 +96,9 @@ Only a small, manifest-based subset is committed to the repo to avoid vendoring
 - `h/` — full Hakka output tree (small; `xref.json` is regenerated)
 - `t/` — source-driven `index.json` and regenerated `xref.json`
 - `pack/` — representative bucket files: `0.txt`, `7.txt`, `102.txt`, `123.txt`, `259.txt`, `379.txt`, `396.txt`, `414.txt`, `804.txt`, `958.txt`
+- `c/` — Cross-Strait subset: `index.json`, `=.json`, sample `@*.json`/`=*.json`,
+  and individual entry JSONs (structural-comparison oracle)
+- `pcck/` — six representative Cross-Strait buckets
 
 See `manifest.json` for the complete list.
 

@@ -59,12 +59,21 @@ export const IDS2UNI: Record<string, string> = {
   '⿰虫念': '𬠖',
 };
 
-export function grokJson(raw: string, idsMap: Record<string, string> = IDS2UNI): GrokEntry[] {
+export function grokJson(
+  raw: string,
+  idsMap: Record<string, string> = IDS2UNI,
+  normalizeString?: (s: string) => string,
+): GrokEntry[] {
   const grokked = minifyKeys(raw).replace(
     /[⿰⿸⿺](?:𧾷|.)./g,
     (ids) => idsMap[ids] ?? ids,
   );
-  return JSON.parse(grokked) as GrokEntry[];
+  if (!normalizeString) return JSON.parse(grokked) as GrokEntry[];
+  // String reviver: runs after JSON decoding, so it sees literal chars for
+  // both literal-UTF-8 and \uXXXX-escaped source forms in one pass.
+  return JSON.parse(grokked, (_key, value) =>
+    typeof value === 'string' ? normalizeString(value) : value,
+  ) as GrokEntry[];
 }
 
 /** Polyfill for the deprecated JS `escape` used in worker.ls. */

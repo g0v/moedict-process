@@ -142,6 +142,12 @@ property tests and golden-output regression tests:
    context. `IDS2UNI` converts known IDS forms to assigned Unicode before this
    gate. No uncurated codepoint is silently stripped or rendered as `□`.
 
+   The Cross-Strait source additionally carries three curated Big5-era PUA
+   codepoints that legacy passed through verbatim; the port normalizes them
+   to assigned Unicode at source load (`src/pack/csld-pua.ts`: `U+E38F → 著`,
+   `U+E840 → 䓖`, `U+F8F8 → removed`) and retains the entries. Uncurated PUA
+   in any language still hard-fails.
+
    Font coverage for Ext C/E/G/H is **render-side**. Fixtures from the pre-Unihan
    pack tree may still show PUA/`𬦀` until regenerated from a PUA-free source.
 6. **Phase 5 (`moedict-webkit` retirement) is blocked** until a full
