@@ -121,7 +121,7 @@ const X_SYM_MAP: Record<string, string> = {};
 export function expandPuaTokens(input: string): string {
   // Pass 1 (compat): a JSON string value that is exactly "{[hex]}" → the x-sym
   // (or plain-sym) value, re-quoted. Mirrors json2unicode.pl's first pass.
-  let out = input.replace(/"\{\[([a-f0-9]{4,5})\]\}"/g, (match, hex) => {
+  const out = input.replace(/"\{\[([a-f0-9]{4,5})\]\}"/g, (match, hex) => {
     const v = X_SYM_MAP[hex] ?? SYM_MAP[hex];
     return v !== undefined ? JSON.stringify(v) : match;
   });
