@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import hakkaPua from './data/hakka-pua.json';
+import { normalizeHakkaPua } from './hakka-pua';
 import { assertNoPua } from './autolink';
 import { codepointCount } from './codepoint';
 import { canonicalJson } from './serializer';
@@ -20,12 +20,7 @@ function writeJson(outputDir: string, lang: 'a' | 't' | 'h', name: string, value
 }
 
 function normalizedHakkaWip(raw: string): Array<Record<string, string>> {
-  const replaced = raw.replace(/\{\[([0-9a-f]{4})\]\}/gi, (token, hex) => {
-    const replacement = hakkaPua[hex.toUpperCase() as keyof typeof hakkaPua];
-    if (replacement === undefined) throw new Error(`unknown Hakka PUA token: ${token}`);
-    return replacement;
-  });
-  return JSON.parse(replaced) as Array<Record<string, string>>;
+  return JSON.parse(normalizeHakkaPua(raw)) as Array<Record<string, string>>;
 }
 
 function terms(value: string): string[] {
