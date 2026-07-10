@@ -25,7 +25,9 @@
 - Downstream consumers:
   - `moedict.tw` consumes `data/dictionary/{pack,pcck,phck,ptck,a,c,h,t,search-index,translation-data,lookup/pinyin}`.
   - `moedict-app/scripts/prepare-data.sh` copies from `moedict.tw/data/dictionary`.
-  - `moedict.org` is served from `g0v/moedict-app` gh-pages; frontend assets originate in `moedict-webkit`.
+  - `moedict.org` is served from `g0v/moedict-webkit` **gh-pages** (verified
+    live 2026-07-09: a font push to webkit gh-pages went live on
+    www.moedict.org). Earlier notes naming `moedict-app` gh-pages are stale.
 
 ## File Structure
 
@@ -50,10 +52,10 @@ In `g0v/moedict-process`:
 
 In `g0v/moedict-webkit`:
 
-- `README.md` and `CLAUDE.md` updated to say the repo is frozen/archived.
+- `README.md` and `CLAUDE.md` updated to say the repo is frozen (never archived — gh-pages serves live moedict.org).
 - `server.ls`, `gulpfile.ls`, `webpack.config.js`, obsolete `package.json` deps, and `Makefile` server/pack targets removed.
 - `index.html`, `index.jade`, `main.ls`, `view.ls`, `sass/`, `fonts/`, `js/`, `fxos/` kept as frozen static-frontend source.
-- Untracked `moedict-app/`, `cci-memoir-draft.md`, `cci-memoir-research-notes.md` dealt with (move or add to `.gitignore`) before archive.
+- Untracked `moedict-app/`, `cci-memoir-draft.md`, `cci-memoir-research-notes.md` dealt with (move or add to `.gitignore`) before freezing.
 
 ## Phase 0: Tooling, Fixtures, and Contract
 
@@ -1580,7 +1582,7 @@ Determine whether the radical correction belongs in data (`g0v/moedict-data`), n
 
 - [ ] **Step 3: Forward-port #316 (license links)**
 
-If the license links are in `about.html` or `README.md`, update them in `moedict-webkit` before freezing. If the links are now owned by `moedict-app` gh-pages, open/comment on the issue there.
+If the license links are in `about.html` or `README.md`, update them in `moedict-webkit` before freezing (they deploy via webkit gh-pages to moedict.org).
 
 **Acceptance:** All listed Dependabot PRs are closed with an explanation; #315 and #316 are either applied or explicitly reassigned to the correct repo.
 
@@ -1621,7 +1623,7 @@ Add a banner:
 ```markdown
 # ⚠️ Frozen
 
-This repository no longer builds dictionary packs. Pack generation lives in `g0v/moedict-process`. The files here are the frozen static-frontend source for `moedict.org`, served via `g0v/moedict-app` gh-pages.
+This repository no longer builds dictionary packs. Pack generation lives in `g0v/moedict-process`. The files here are the frozen static-frontend source for `moedict.org`, served from this repo's gh-pages branch.
 ```
 
 Remove the HFS+ requirement from `CLAUDE.md`.
@@ -1652,9 +1654,9 @@ git commit -m "chore: retire server and build toolchain; freeze static frontend"
 - `moedict-webkit/cci-memoir-research-notes.md`
 - `moedict-webkit/moedict-app/` (untracked)
 
-- [ ] **Step 1: Move or archive memoir files**
+- [ ] **Step 1: Move memoir files out of the repo**
 
-If these are user drafts, move them to a personal repo or add to `.gitignore` and remove from the working tree. Do not commit them to the archived project repo.
+If these are user drafts, move them to a personal repo or add to `.gitignore` and remove from the working tree. Do not commit them to the frozen project repo.
 
 - [ ] **Step 2: Remove or explain `moedict-app/`**
 
@@ -1671,11 +1673,11 @@ git commit -m "chore: clean untracked drafts and stale moedict-app checkout"
 
 ---
 
-### Task 5.4: Archive/rename and redirect checks
+### Task 5.4: Freeze and redirect checks
 
 **Files:**
 - GitHub repo settings for `g0v/moedict-webkit`
-- `g0v/moedict-app` deployment settings (gh-pages)
+- `g0v/moedict-webkit` gh-pages deployment flow
 - `g0v/moedict.tw` data paths
 
 - [ ] **Step 1: Stage new pack output in downstream repos**
@@ -1684,18 +1686,22 @@ Update `moedict.tw` to consume `moedict-process` pack output (e.g., via Git subm
 
 - [ ] **Step 2: Verify `moedict.org` URLs and SEO**
 
-Before archiving, run a crawl of `www.moedict.org` from `moedict-app` gh-pages staging. Confirm that:
+Before retiring pack targets, run a crawl of `www.moedict.org` (served from
+`moedict-webkit` gh-pages). Confirm that:
 - `/a/中央.json` and similar entry URLs still resolve.
 - `/pack/7.txt` bucket URLs still resolve.
 - No 404s appear for top 1000 query paths from access logs.
 
-- [ ] **Step 3: Archive or rename `moedict-webkit`**
+- [ ] **Step 3: Freeze `moedict-webkit` (do NOT archive)**
 
-Options:
-1. **Archive** the repo (GitHub "Archive this repository"). No redirects needed beyond GitHub's automatic ones.
-2. **Rename** to `g0v/moedict-legacy-frontend` and leave a stub `README.md` in `g0v/moedict-webkit` explaining the move. This preserves stars/issues but breaks some old URLs.
-
-Recommended: archive without rename first; if a rename is later desired, do it after a 30-day observation window.
+**Correction (2026-07-10):** the repo cannot be archived or renamed — its
+gh-pages branch IS the live www.moedict.org (frontend + full pack data:
+1026 `pack/` buckets, `a/c/h/` trees, `lookup/pinyin/a+c` HanYu files).
+Archiving would freeze the ability to push gh-pages fixes. End state is
+**frozen-but-active**: master keeps only the static-frontend source and a
+freeze banner; pack/build Makefile targets and generator scripts are
+deleted; gh-pages remains the serving artifact with `moedict-process` as
+the sole regeneration path.
 
 - [ ] **Step 4: Document final state**
 
@@ -1708,7 +1714,7 @@ git add README.md
 git commit -m "docs: document pack command and downstream contract"
 ```
 
-**Acceptance:** `moedict.org` serves correctly from `moedict-app` gh-pages using new pack output; `moedict-webkit` is archived or clearly marked frozen; no 404 regressions in top 1000 paths.
+**Acceptance:** `moedict.org` serves correctly from `moedict-webkit` gh-pages using new pack output; `moedict-webkit` master is clearly marked frozen (never archived); no 404 regressions in top 1000 paths.
 
 ---
 
@@ -1727,20 +1733,20 @@ git commit -m "docs: document pack command and downstream contract"
 1. Merge pack factory into `moedict-process` `main`.
 2. Update `moedict.tw` to pull pack output from `moedict-process`.
 3. Update `moedict-app/scripts/prepare-data.sh`.
-4. Stage `moedict.org` on `moedict-app` gh-pages.
+4. Stage `moedict.org` on `moedict-webkit` gh-pages.
 5. Smoke-test top paths.
-6. Archive `moedict-webkit`.
+6. Freeze `moedict-webkit` master (banner + pack-target deletion; never archive).
 
 ## Rollback
 
-- If `bun run pack` output diverges from legacy and cannot be reconciled, keep the legacy pipeline in `moedict-webkit` for one extra release while fixing `moedict-process`. Do not archive `moedict-webkit` until golden tests pass.
-- If `moedict.org` staging shows 404s, revert `moedict-app` gh-pages to the previous commit and investigate path mappings.
+- If `bun run pack` output diverges from legacy and cannot be reconciled, keep the legacy pipeline in `moedict-webkit` for one extra release while fixing `moedict-process`. Do not delete pack targets until golden tests pass.
+- If `moedict.org` staging shows 404s, revert `moedict-webkit` gh-pages to the previous commit and investigate path mappings.
 
 ## Follow-ups
 
 - Generate `lookup/pinyin/` in the new pipeline and add it to golden tests.
 - Add `c` language golden fixtures.
-- Evaluate renaming `moedict-webkit` to `moedict-legacy-frontend`.
+- ~~Evaluate renaming `moedict-webkit` to `moedict-legacy-frontend`.~~ Ruled out 2026-07-10: gh-pages serves live moedict.org; rename/archive breaks the deploy surface.
 - File LemmaScript toolchain issues for any unsupported TypeScript idioms encountered.
 
 ## Decision Log
@@ -1750,7 +1756,7 @@ git commit -m "docs: document pack command and downstream contract"
 - **Golden-output fixtures:** Frozen legacy `make full` output is the oracle. Byte-for-byte matching is required unless a difference is documented as a bug fix or nondeterminism.
 - **APFS filename handling:** Use an in-memory `FileTitleAcceptor` (per-language `Set` of NFD-normalized filenames) instead of an HFS+ partition. It rejects filenames containing IDS characters (`⿰⿸⿺`) and rejects NFD duplicates entirely before both file write and bucket append, matching `link2pack.pl` lines 47–49. Unsubstituted `{[hex]}` tokens and variant selectors remain filtered upstream by `isSkippedTitle`.
 - **Canonical JSON and C-locale ordering:** `bun run pack` sorts `idx title payload` lines and bucket entries by UTF-8 byte comparison (`cLocaleCompare`) and writes canonical JSON, matching `perl sort-json.pl | env LC_ALL=C sort`.
-- **Legacy frontend ownership:** `moedict.org` static frontend source remains in `moedict-webkit` but is frozen; deployment flows through `g0v/moedict-app` gh-pages.
+- **Legacy frontend ownership:** `moedict.org` static frontend source remains in `moedict-webkit` and is frozen; deployment flows through `moedict-webkit` gh-pages (corrected 2026-07-10; earlier `moedict-app` claim was stale).
 
 ## Spec Coverage
 
