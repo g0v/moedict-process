@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { assertNoPua } from './autolink';
+import { assertNoPua, HAKKA_LITERAL_PUA } from './autolink';
 import { canonicalJson } from './serializer';
 
 type GeneratedIndexLang = 'a' | 'h';
@@ -25,7 +25,7 @@ export function writeGeneratedIndex(
 ): void {
   const index = [...new Set(titles)].sort(compareUnicodeScalars);
   const content = `${canonicalJson(index)}\n`;
-  assertNoPua(content, `${lang}/index.json`);
+  assertNoPua(content, `${lang}/index.json`, lang === 'h' ? HAKKA_LITERAL_PUA : undefined);
   const langDir = path.join(outputDir, lang);
   fs.mkdirSync(langDir, { recursive: true });
   fs.writeFileSync(path.join(langDir, 'index.json'), content);

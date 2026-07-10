@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Lang } from './types';
-import { assertNoPua } from './autolink';
+import { assertNoPua, HAKKA_LITERAL_PUA } from './autolink';
 
 const PACK_DIR: Record<Lang, string> = {
   a: 'pack',
@@ -51,7 +51,7 @@ function writeSpecialPack(
     const base = path.basename(file, '.json');
     if (special === '=' && base === '=') continue;
     const payload = stripPayloadWhitespace(fs.readFileSync(file, 'utf8'));
-    assertNoPua(payload, `special ${lang}/${base}.json`);
+    assertNoPua(payload, `special ${lang}/${base}.json`, lang === 'h' ? HAKKA_LITERAL_PUA : undefined);
     const escaped = escapeSpecialKey(base);
     if (printed === 0) {
       body += `"${escaped}":${payload}`;
@@ -62,7 +62,7 @@ function writeSpecialPack(
   }
   if (printed === 0) return;
   body += '\n}\n';
-  assertNoPua(body, `special pack ${lang}/${special}.txt`);
+  assertNoPua(body, `special pack ${lang}/${special}.txt`, lang === 'h' ? HAKKA_LITERAL_PUA : undefined);
   fs.writeFileSync(outPath, body);
 }
 

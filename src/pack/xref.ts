@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { normalizeHakkaPua } from './hakka-pua';
-import { assertNoPua } from './autolink';
+import { assertNoPua, HAKKA_LITERAL_PUA } from './autolink';
 import { codepointCount } from './codepoint';
 import { canonicalJson } from './serializer';
 
@@ -13,7 +13,7 @@ function append(map: StringMap, key: string, value: string): void {
 
 function writeJson(outputDir: string, lang: 'a' | 't' | 'h', name: string, value: unknown): void {
   const content = `${canonicalJson(value)}\n`;
-  assertNoPua(content, `${lang}/${name}`);
+  assertNoPua(content, `${lang}/${name}`, lang === 'h' ? HAKKA_LITERAL_PUA : undefined);
   const dir = path.join(outputDir, lang);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, name), content);

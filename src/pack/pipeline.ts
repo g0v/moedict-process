@@ -12,6 +12,7 @@ import {
   autolinkLine,
   IDS2UNI,
   assertNoPua,
+  HAKKA_LITERAL_PUA,
 } from './autolink';
 import type { AutolinkJob, AutolinkResult, AutolinkCandidate } from './autolink-worker';
 import { PackWriter } from './io';
@@ -58,6 +59,7 @@ async function packLang(
   outputDir: string,
   concurrency: number,
 ): Promise<void> {
+  const extraAllowlist = lang === 'h' ? HAKKA_LITERAL_PUA : undefined;
   const entriesForPrefix = loadGrokEntries(lang, inputDir, IDS2UNI);
   const entriesForAutolink = loadGrokEntries(lang, inputDir, IDS2UNI);
 
@@ -70,17 +72,17 @@ async function packLang(
 
   for (const [len, re] of Object.entries(lenToRegex)) {
     const content = canonicalJson({ [len]: re });
-    assertNoPua(content, `lang=${lang} lenToRegex.${len}.json`);
+    assertNoPua(content, `lang=${lang} lenToRegex.${len}.json`, extraAllowlist);
     fs.writeFileSync(path.join(langOutputDir, `lenToRegex.${len}.json`), content);
   }
   {
     const content = canonicalJson({ lenToRegex });
-    assertNoPua(content, `lang=${lang} lenToRegex.json`);
+    assertNoPua(content, `lang=${lang} lenToRegex.json`, extraAllowlist);
     fs.writeFileSync(path.join(langOutputDir, 'lenToRegex.json'), content);
   }
   {
     const content = canonicalJson({ abbrevToTitle });
-    assertNoPua(content, `lang=${lang} precomputed.json`);
+    assertNoPua(content, `lang=${lang} precomputed.json`, extraAllowlist);
     fs.writeFileSync(path.join(langOutputDir, 'precomputed.json'), content);
   }
 
@@ -132,6 +134,7 @@ async function packLang(
     assertNoPua(
       expandedPayload,
       `lang=${lang} title=${fileTitle || bucketTitle}`,
+      extraAllowlist,
     );
     const acceptedTitle = writer.writeEntry(lang, bucket, bucketTitle, fileTitle, expandedPayload);
     if (acceptedTitle !== null) acceptedTitles.push(acceptedTitle);

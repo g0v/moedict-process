@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { tmpdir } from 'node:os';
 import { runPack } from '~/pack/pipeline';
 import { buildSpecialPacks, buildCategoryFiles } from '~/pack/special';
+import { assertNoPua, HAKKA_LITERAL_PUA } from '~/pack/autolink';
 
 describe('pack PUA gate', () => {
   it('fails runPack when source definitions contain unmapped PUA', async () => {
@@ -77,6 +78,16 @@ describe('pack PUA gate', () => {
     fs.writeFileSync(path.join(input, 'dict-revised.json'), JSON.stringify(entries));
     await runPack({ lang: 'a', inputDir: input, outputDir: output, concurrency: 1 });
     fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it('passes all approved Hakka literal BMP-PUA codepoints when HAKKA_LITERAL_PUA is passed', () => {
+    // All 16 codepoints from dict-hakka.json that are passed through in deployed phck/
+    const allHakka = '\uE577\uE6B3\uF305\uF307\uF34C\uF354\uF369\uF36B\uF36E\uF36F\uF374\uF377\uF385\uF390\uF3B9\uF545';
+    expect(() => assertNoPua(allHakka, 'hakka literals', HAKKA_LITERAL_PUA)).not.toThrow();
+    expect(() => assertNoPua(allHakka, 'hakka literals')).toThrow(/U\+E577/);
+    // Neighbor codepoints still rejected
+    expect(() => assertNoPua('\uE578', 'neighbor', HAKKA_LITERAL_PUA)).toThrow(/U\+E578/);
+    expect(() => assertNoPua('\uF34D', 'neighbor', HAKKA_LITERAL_PUA)).toThrow(/U\+F34D/);
   });
 
   it('fails buildSpecialPacks when @ payload contains PUA', () => {

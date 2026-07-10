@@ -209,13 +209,34 @@ const VARIANT_PUA_ALLOWLIST: ReadonlySet<number> = new Set<number>([
 ]);
 
 /**
+ * Hakka literal BMP-PUA codepoints allowed only on Hakka surfaces.
+ *
+ * These 16 codepoints (U+E577–U+F545) appear in dict-hakka.json synonyms/antonyms
+ * and are passed through verbatim in deployed data/dictionary/phck/ outputs.
+ * They have no authoritative MOE font mapping; the pass-through policy preserves
+ * legacy behavior. The set is FIXED/curated from a one-pass scan of
+ * dict-hakka.json cross-checked against deployed phck/ — do not grow it
+ * one test failure at a time.
+ */
+export const HAKKA_LITERAL_PUA: ReadonlySet<number> = new Set<number>([
+  0xE577, 0xE6B3, 0xF305, 0xF307, 0xF34C, 0xF354, 0xF369, 0xF36B,
+  0xF36E, 0xF36F, 0xF374, 0xF377, 0xF385, 0xF390, 0xF3B9, 0xF545,
+]);
+
+/**
  * Fail hard if processed pack text still contains PUA that is NOT a curated
  * MOE variant glyph (one of the 131 in the font cmap). Those pass through
  * by the MOE font display-side); all other PUA must be curated to assigned
  * Unihan (or IDS), not silently stripped.
  */
-export function assertNoPua(text: string, context: string): void {
-  const pua = findPuaCodePoints(text).filter((cp) => !VARIANT_PUA_ALLOWLIST.has(cp));
+export function assertNoPua(
+  text: string,
+  context: string,
+  extraAllowlist?: ReadonlySet<number>,
+): void {
+  const pua = findPuaCodePoints(text).filter(
+    (cp) => !VARIANT_PUA_ALLOWLIST.has(cp) && !(extraAllowlist?.has(cp)),
+  );
   if (pua.length === 0) return;
   const labels = pua.map((cp) => `U+${cp.toString(16).toUpperCase()}`);
   throw new Error(

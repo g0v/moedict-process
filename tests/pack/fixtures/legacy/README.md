@@ -11,9 +11,10 @@ for `bun run pack` golden tests.
 
 ### Regenerated metadata
 
-`a/index.json` and `a/xref.json`, `h/xref.json`, and `t/xref.json` were
-regenerated on 2026-07-10 with the TypeScript pack port. The inputs were the
-dictionary snapshot above plus `moedict-data-twblg` commit
+`a/index.json` and `a/xref.json`, `h/xref.json`, `t/xref.json`, and
+`h/index.json` were regenerated on 2026-07-10 with the TypeScript pack
+port. The inputs were the dictionary snapshot above plus
+`moedict-data-twblg` commit
 `253365f292b38e431ffcee541348e44b9f69ae22:x-華語對照表.csv` and
 `moedict-data-hakka` commit
 `848be54226a673ff3b56b9b56cebb300ce5f0ae4:work-in-progress.json`.
@@ -21,6 +22,24 @@ dictionary snapshot above plus `moedict-data-twblg` commit
 These are source-contract fixtures, not byte-preserved legacy artifacts:
 generated indexes use Unicode scalar ordering, and xrefs use canonical JSON.
 The remaining files retain the 2026-07-09 legacy capture.
+
+#### h/index.json regeneration notes
+
+The legacy `h/index.json` fixture (2026-07-09 capture, 14712 entries) was
+replaced with a port-generated index (14711 entries) because of source
+drift in `dict-hakka.json` since the original capture:
+
+- 12 titles: `朏` (U+670F) → `胐` (U+80D0) — MOE character correction
+- 1 title: `落食` → `絡食` — MOE character correction
+- 1 title: `U+FF545` (plane-15 PUA) → `⿺皮卜` (IDS) — the legacy pipeline
+  converted IDS titles to plane-15 PUA via the `hakka-pua` token map
+  (F545 → `⿺皮卜`); the port's `isSkippedTitle` filter drops IDS titles
+  (`⿰`/`⿸`/`⿺`) entirely, so the entry is absent from both the index and
+  the `phck/` bucket output. This is a deliberate 1-entry loss: the port
+  produces 15455 `phck/` entries vs 15456 in the deployed legacy output.
+  The missing entry (`⿺皮卜`, audio_id 15287) is a minor Hakka word for
+  "skin bump from insect bite."
+
 
 ## Scope
 
