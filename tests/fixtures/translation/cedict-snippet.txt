@@ -1,0 +1,4 @@
+# CEDICT snippet
+測試 测试 [ce4 shi4] /test/examen/
+字典 字典 [zi4 dian3] /dictionary/
+一 一 [yi1] /one/(u.E.)un/
