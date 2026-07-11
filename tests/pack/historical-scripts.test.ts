@@ -118,9 +118,92 @@ describe('historical-scripts compiler', () => {
     expect(() => compileHistoricalScripts(recordsText, manifest)).toThrow('unmirrored asset');
   });
 
+  it('omits a stroke field covered by an explicit known-gaps entry instead of throwing', () => {
+    const manifest = manifestFixture.map((line) => {
+      const parsed = JSON.parse(line) as { url: string };
+      return parsed.url === 'https://x/kai.gif' ? manifestRow({ url: 'https://x/kai.gif', status: 'failed', localPath: '' }) : line;
+    }).join('\n');
+    const output = compileHistoricalScripts(recordsText, manifest, { 'https://x/kai.gif': { reason: 'confirmed permanent 404 on manual recheck', source: 'test' } });
+    const kai = output['U+4E00']?.strokes.find((s) => s.key === '楷書');
+    expect(kai?.webp).toBeUndefined();
+    expect(kai?.jpg).toBe('media/1/kai.jpg');
+  });
+
+  it('drops a stroke entry entirely when every field it has is a known gap', () => {
+    const onlyGif = record({ strokes: [{ key: '楷書', gif: 'https://x/kai.gif' }], sources: [] });
+    const manifest = [manifestRow({ url: 'https://x/kai.gif', status: 'failed', localPath: '' })].join('\n');
+    const output = compileHistoricalScripts(onlyGif, manifest, { 'https://x/kai.gif': { reason: 'confirmed gap', source: 'test' } });
+    expect(output['U+4E00']?.strokes).toEqual([]);
+  });
+
+  it('drops a source form entirely when its own image is a known gap', () => {
+    const withGapImage = record({
+      strokes: [],
+      sources: [{ key: '金文', forms: [{ image: 'https://x/gap-source.png', citation: 'plain citation, no inline image' }] }],
+    });
+    const manifest = [manifestRow({ url: 'https://x/gap-source.png', status: 'failed', localPath: '' })].join('\n');
+    const output = compileHistoricalScripts(withGapImage, manifest, { 'https://x/gap-source.png': { reason: 'confirmed gap', source: 'test' } });
+    expect(output['U+4E00']?.sources).toEqual([]);
+  });
+
+  it('strips a known-gap citation-inline image from an otherwise-resolved source form', () => {
+    const withGapInline = record({
+      strokes: [],
+      sources: [{ key: '金文', forms: [{ image: 'https://x/source1.png', citation: 'cite(<img src="https://x/gap-inline.png"/>)' }] }],
+    });
+    const manifest = [
+      manifestRow({ url: 'https://x/source1.png', localPath: 'media/1/source1.png' }),
+      manifestRow({ url: 'https://x/gap-inline.png', status: 'failed', localPath: '' }),
+    ].join('\n');
+    const output = compileHistoricalScripts(withGapInline, manifest, { 'https://x/gap-inline.png': { reason: 'confirmed gap', source: 'test' } });
+    expect(output['U+4E00']?.sources).toEqual([{ key: '金文', forms: [{ image: 'media/1/source1.png', citation: 'cite()' }] }]);
+  });
+
+  it('hard-fails when a known-gaps entry is never actually referenced or consumed (stale allowlist entry)', () => {
+    const manifest = manifestFixture.join('\n');
+    expect(() => compileHistoricalScripts(recordsText, manifest, { 'https://x/completely-unrelated.png': { reason: 'stale', source: 'test' } })).toThrow('stale');
+  });
+
+  it('still hard-fails a known-gaps entry with no matching failed manifest row (unattested, could be a pipeline bug)', () => {
+    const manifest = manifestFixture.join('\n'); // no row at all for the never-attempted URL below
+    const withUnattestedGap = record({
+      strokes: [{ key: '楷書', gif: 'https://x/never-attempted.gif' }],
+      sources: [],
+    });
+    expect(() => compileHistoricalScripts(withUnattestedGap, manifest, { 'https://x/never-attempted.gif': { reason: 'typo or stale entry', source: 'test' } })).toThrow('not present in mirror manifest at all');
+  });
+
+  it('still hard-fails an unmirrored asset not covered by any known-gaps entry', () => {
+    const manifest = manifestFixture.map((line) => {
+      const parsed = JSON.parse(line) as { url: string };
+      return parsed.url === 'https://x/kai.gif' ? manifestRow({ url: 'https://x/kai.gif', status: 'failed', localPath: '' }) : line;
+    }).join('\n');
+    expect(() => compileHistoricalScripts(recordsText, manifest, { 'https://x/some-other-url.gif': { reason: 'irrelevant', source: 'test' } })).toThrow('unmirrored asset');
+  });
+
   it('throws when a citation-embedded image is absent from the manifest entirely', () => {
     const manifest = manifestFixture.filter((line) => !line.includes('inline1.png')).join('\n');
     expect(() => compileHistoricalScripts(recordsText, manifest)).toThrow('not present in mirror manifest at all');
+  });
+
+  it('hard-fails a literal PUA character embedded directly in citation prose (not inside an img tag)', () => {
+    const withPuaCitation = record({
+      strokes: [],
+      sources: [{ key: '金文', forms: [{ image: 'https://x/source1.png', citation: `集成6500(鼓${String.fromCodePoint(0xf4bd)}作父辛觶)` }] }],
+    });
+    const manifest = [manifestRow({ url: 'https://x/source1.png', localPath: 'media/1/source1.png' })].join('\n');
+    expect(() => compileHistoricalScripts(withPuaCitation, manifest)).toThrow('uncurated PUA codepoint');
+  });
+
+  it('accepts a reviewed citationOverrides entry for a citation containing PUA', () => {
+    const rawCitation = `集成6500(鼓${String.fromCodePoint(0xf4bd)}作父辛觶)`;
+    const withPuaCitation = record({
+      strokes: [],
+      sources: [{ key: '金文', forms: [{ image: 'https://x/source1.png', citation: rawCitation }] }],
+    });
+    const manifest = [manifestRow({ url: 'https://x/source1.png', localPath: 'media/1/source1.png' })].join('\n');
+    const output = compileHistoricalScripts(withPuaCitation, manifest, {}, { [rawCitation]: '集成6500(鼓貞作父辛觶)' });
+    expect(output['U+4E00']?.sources[0]?.forms[0]?.citation).toBe('集成6500(鼓貞作父辛觶)');
   });
 
   it('rejects a record character that is not a single Unicode scalar', () => {

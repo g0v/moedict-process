@@ -40,14 +40,15 @@ The stroke GIFs are unoptimized progressive-stroke animations (each frame close 
 
 Applying all three optimizers to the full projected corpus:
 
-| Asset | Before | After | Ratio |
-|---|---|---|---|
-| GIF → WebP | 6,023 MB | 548 MB | 9.1% |
-| JPG | 299 MB | 191 MB | 63.8% |
-| PNG | 65 MB | 37 MB | 57.5% |
-| **Total** | **6.24 GB** | **776 MB** | **12.2%** (87.8% reduction) |
+| Asset | Files (actual) | Before (actual) | After (actual) | Ratio |
+|---|---|---|---|---|
+| Stroke GIF → WebP | 15,882 | 5,526 MB | 502 MB | 9.1% |
+| Stroke JPG (jpegtran; 16 of these were mislabeled BMP, transcoded via ffmpeg instead — see below) | 15,873 | 281 MB | 232 MB | 82.5% |
+| Source PNG (oxipng) | 14,714 | 73 MB | 43 MB | 59.5% |
+| Citation-inline PNG (oxipng) | 465 | 0.6 MB | 0.3 MB | 51.1% |
+| **Total (successfully mirrored)** | **46,934** | **5.74 GB** | **777.4 MB** | **13.2%** (86.8% reduction) |
 
-776 MB is still too many small objects for git (46,997 loose blobs bloats pack files independent of total bytes) but is a reasonable size for a single versioned, checksummed archive.
+777 MB is still too many small objects for git (46,934 loose blobs bloats pack files independent of total bytes) but is a reasonable size for a single versioned, checksummed archive.
 
 ## Acquisition pipeline
 
@@ -55,6 +56,14 @@ Applying all three optimizers to the full projected corpus:
 
 **Citation-embedded inline images**: 451 of the 14,764 source-form `citation` strings embed their own `<img src="…/word_sources/source_img/…">` tag for an archaic/unencodable glyph inline in the citation prose (e.g. 丞's 金文 citation is `集成5318( <img src="…A00016j001a001.png"/>丞卣)`), separate from the form's own `f.image`. These are enumerated as their own `citation-inline-png` mirror jobs (466 unique URLs) so the compiled sidecar's citation HTML never depends on a live fetch to the upstream host. This was caught only after the main 46,531-URL acquisition pass was already running (its in-memory job list predates the fix), so acquisition is two passes: the original pass, then a resumable rerun of the same `mirror.ts` that fetches only the net-new 466 URLs (everything else is skipped via the checksum-verified resume set) — bringing the total to 46,997 unique assets.
 
+
+### Acquisition hardening found by re-verifying against the completed corpus
+
+Three total acquisition passes ran: the original 46,531 URLs; a resumable rerun for the 466 citation-inline URLs plus retrying every then-failed URL; a final rerun after the BMP fix below.
+
+- **BMP served at a `.jpg` URL**: 16 stroke assets across 3 characters (抹, 盆, 簧) are actually Windows BMP files (magic bytes `42 4D`), not JPEG — `jpegtran` cannot losslessly re-optimize non-JPEG input. Fixed by sniffing the fetched bytes' actual magic before dispatch; a `stroke-jpg` job that doesn't start `FF D8` is transcoded via `ffmpeg -q:v 2` instead, a disclosed lossy fallback for exactly this narrow input class (the "JPG" role was never pixel-perfect-lossless to begin with — only GIF→WebP carries that guarantee).
+- **Confirmed-permanent gaps**: after three passes, 63 of 46,997 unique assets (0.13%) remain unmirrorable — 62 genuine upstream HTTP 404s (reverified live) and one (蓄's 篆書 stroke GIF) upstream data corruption confirmed independently by two GIF decoders failing at the identical byte offset (frame #60/61: "unknown block type 143" / "GIFLib Error 0"), not a network transfer issue and not losslessly recoverable. Recorded in a reviewed `known-gaps.json` (URL → `{ reason, source }`, mirroring `variants.ts`'s `DuplicateResolution` exception-review pattern). `historical-scripts.ts` requires **both** a `knownGaps` entry **and** manifest evidence of an actual `status: "failed"` row before downgrading a missing asset from a hard failure to a dropped field/form — an entry for a URL that was never attempted still throws — **and** self-audits: every `knownGaps` entry must actually get consumed by some record during compilation, or the compile throws (`"is stale (not referenced by any record, or its manifest row is no longer failed)"`), so a stale or typo'd allowlist entry cannot silently persist unnoticed.
+- **Uncurated PUA in citation prose is a hard failure, never silently transformed**: distinct from the `<img>`-wrapped citation-inline case, one citation (鼓's, `集成6500(鼓\uf4bd作父辛觶)`) embeds a literal PUA codepoint directly in the prose — a vendor-specific mapping for a bronze-inscription glyph with no standard Unicode assignment. Per `docs/pack-format-contract.md`'s "Variant PUA policy" ("No uncurated codepoint is silently stripped or rendered as `□`"), the compiler does **not** strip, replace, or pass through this codepoint — it hard-fails with the exact citation text, requiring a human-reviewed `citationOverrides[rawCitation] = correctedText` entry (mirroring `csld-pua.ts`'s per-codepoint normalization), self-audited the same way as `knownGaps` (an unused override entry also throws). **This is the one remaining open item**: nobody has yet identified what glyph U+F4BD is meant to represent, so `citation-overrides.json` is currently empty and the real pack run will correctly refuse to complete until either that citation is transcribed by someone who can read the source, or the decision is made to represent it as an explicit editorial gap rather than guessed. Verified in isolation: the full 3,000-character corpus compiles cleanly to 2,999 entries when 鼓 alone is excluded, confirming this is the *only* remaining blocker.
 
 ## Ownership and packaging boundary
 
@@ -77,6 +86,7 @@ Following the variants sidecar precedent:
 - Exact media counts from the completed scan: 15,884 GIF + 15,884 JPG + 14,764 PNG (source-form) + 466 citation-inline PNG = 46,997 unique URLs (of which exactly one — a `篆文`/說文古文 form image — is legitimately shared by two different characters, 戌 and 酉; the manifest's URL-keyed dedup means this asset has only one manifest row, which is why the compiler must build the relationship graph from `historical-records.ndjson`, not from `mirror-manifest.ndjson`).
 - Lossless re-encoding verified via disposal-composited RGBA frame hashes + per-frame delay + total duration + canvas size + `webpmux -info` compression field, across 18 samples spanning all 7 script types and both small (~68 KB) and large (~810 KB) originals.
 - `mirror.ts` smoke-tested end-to-end (fetch → checksum → optimize → checksum → manifest) on a 5-character / 108-asset slice and separately on a citation-inline-image case (丞): 0 failures, checksums reproduced deterministically on rerun.
-- `historical-scripts.ts`: 13 unit tests (stroke resolution/ordering, citation rewrite, shared-media-asset preservation across two different characters, source-script chronological ordering, `found: false` skip, fail-loud on unmapped/failed stroke and citation assets, multi-scalar rejection, deterministic key ordering, no-PUA output, missing-records-file and missing-manifest errors) — all passing, including a targeted real-data check (a standalone mirror run against just 戌/酉's real records and citations, confirming both characters keep their shared 說文古文 form after the fix). Full test suite 245 pass / 0 fail. `tsc -b`, `eslint .`, and `lsc check --backend=dafny` all clean.
+- `historical-scripts.ts`: 24 unit tests (stroke resolution/ordering, citation rewrite, shared-media-asset preservation across two different characters, source-script chronological ordering, `found: false` skip, fail-loud on unmapped/failed stroke and citation assets, append-only-manifest latest-row-wins in both directions, known-gaps omission at field/entry/form granularity, known-gaps requiring manifest evidence not just an allowlist string, known-gaps and citationOverrides self-audit against staleness, uncurated-PUA hard-fail plus reviewed-override acceptance, multi-scalar rejection, deterministic key ordering, no-PUA output, missing-records-file and missing-manifest errors) — all passing, including a targeted real-data check (a standalone mirror run against just 戌/酉's real records and citations, confirming both characters keep their shared 說文古文 form). Full test suite 262 pass / 0 fail. `tsc -b`, `eslint .`, and `lsc check --backend=dafny` all clean.
 - Citation-rewrite performance validated at corpus scale: a synthetic 45,000-row / 3,000-character manifest (matching the real corpus's shape) compiles in 53 ms after switching from a whole-map scan per citation to a targeted per-citation regex extraction + `Map.get`.
-- Full acquisition run (46,531 URLs, pre-citation-inline-fix) launched in background; a second resumable pass will backfill the 466 citation-inline URLs once the first completes.
+- **Full acquisition completed**: 46,934 of 46,997 unique assets (99.87%) mirrored successfully across three passes, 5.74 GB → 777.4 MB (86.8% reduction). Random-sample integrity audits (60, then 100, then 300 files) against live disk: 0 missing files, 0 hash mismatches, 0 manifest parse failures throughout.
+- **Full end-to-end compile run against the real, complete corpus**: 2,999 of 3,000 characters compile cleanly to `a/historical-scripts/index.json` (15,883 stroke entries, ~14,700 source forms, 173 ms, zero upstream URLs or PUA codepoints in the output — confirmed by grep and `assertNoPua`); the 3,000th (鼓) is the one open item above and correctly, intentionally blocks a full run until curated.
