@@ -13,6 +13,20 @@ export function cellTypeToCtype(cellType: CellType | undefined): number {
   return cellType === undefined || cellType === 'z' ? 0 : 1;
 }
 
+/** Select a definition-bearing source column: 0=primary, 1=legacy editorial notes. */
+export function definitionSourceColumn(rowLength: number, source: number): number {
+  //@ verify
+  //@ requires rowLength >= 0
+  //@ requires source === 0 || source === 1
+  //@ ensures (rowLength >= 18 && source === 0) ==> \result === 15
+  //@ ensures (rowLength >= 18 && source === 1) ==> \result === -1
+  //@ ensures (rowLength < 18 && source === 0) ==> \result === 10
+  //@ ensures (rowLength < 18 && source === 1) ==> \result === 11
+  //@ ensures rowLength >= 18 ==> \result !== 16
+  if (source === 0) return rowLength >= 18 ? 15 : 10;
+  return rowLength >= 18 ? -1 : 11;
+}
+
 /** Iterate rows of the first sheet of an xlsx file, skipping the header row. */
 export function* iterateSheetRows(filePath: string): Generator<SourceCell[]> {
   const workbook = XLSX.read(readFileSync(filePath), { type: 'buffer' });

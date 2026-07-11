@@ -3,7 +3,11 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { cellTypeToCtype, iterateSheetRows } from '../src/excel';
+import {
+  cellTypeToCtype,
+  definitionSourceColumn,
+  iterateSheetRows,
+} from '../src/excel';
 
 XLSX.set_fs(fs);
 
@@ -79,5 +83,21 @@ describe('cellTypeToCtype', () => {
     expect(cellTypeToCtype('b')).toBe(1);
     expect(cellTypeToCtype('d')).toBe(1);
     expect(cellTypeToCtype('e')).toBe(1);
+  });
+});
+
+describe('definitionSourceColumn', () => {
+  it('routes modern rows only to definitions column 15', () => {
+    expect(definitionSourceColumn(18, 0)).toBe(15);
+    expect(definitionSourceColumn(18, 1)).toBe(-1);
+    expect(definitionSourceColumn(20, 0)).toBe(15);
+    expect(definitionSourceColumn(20, 1)).toBe(-1);
+  });
+
+  it('routes legacy rows to definitions column 10 and editorial column 11', () => {
+    expect(definitionSourceColumn(14, 0)).toBe(10);
+    expect(definitionSourceColumn(14, 1)).toBe(11);
+    expect(definitionSourceColumn(17, 0)).toBe(10);
+    expect(definitionSourceColumn(17, 1)).toBe(11);
   });
 });
