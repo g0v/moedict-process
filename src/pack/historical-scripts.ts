@@ -21,7 +21,12 @@ export interface HistoricalRecord {
   strokes: HistoricalRecordStroke[];
   sources: HistoricalRecordSource[];
 }
-export interface StrokeEntry { key: string; webp?: string; jpg?: string; }
+/** `preview` may be a `.jpg` (the common case) or a `.png` (a small number of
+ * upstream assets are served at a `.jpg` URL but are actually another raster
+ * format — observed: BMP — losslessly re-encoded to PNG instead of accepting
+ * a lossy JPEG re-encode; the field is named format-agnostically for exactly
+ * this reason, with the real extension always visible in the path itself). */
+export interface StrokeEntry { key: string; webp?: string; preview?: string; }
 export interface SourceForm { image: string; citation: string; }
 export interface SourceEntry { key: string; forms: SourceForm[]; }
 export interface HistoricalScriptsEntry { strokes: StrokeEntry[]; sources: SourceEntry[]; }
@@ -197,10 +202,10 @@ export function compileHistoricalScripts(recordsText: string, manifestText: stri
     const strokes: StrokeEntry[] = record.strokes
       .map((s) => {
         const webp = s.gif ? resolveLocalPath(s.gif, record.character, 'stroke gif', urlToLocalPath, allRowsByUrl, knownGaps, usedGaps) : undefined;
-        const jpg = s.jpg ? resolveLocalPath(s.jpg, record.character, 'stroke jpg', urlToLocalPath, allRowsByUrl, knownGaps, usedGaps) : undefined;
-        return { key: s.key, ...(webp !== undefined ? { webp } : {}), ...(jpg !== undefined ? { jpg } : {}) };
+        const preview = s.jpg ? resolveLocalPath(s.jpg, record.character, 'stroke jpg', urlToLocalPath, allRowsByUrl, knownGaps, usedGaps) : undefined;
+        return { key: s.key, ...(webp !== undefined ? { webp } : {}), ...(preview !== undefined ? { preview } : {}) };
       })
-      .filter((s) => s.webp !== undefined || s.jpg !== undefined)
+      .filter((s) => s.webp !== undefined || s.preview !== undefined)
       .sort((a, b) => scriptOrderCompare(STROKE_SCRIPT_ORDER, a.key, b.key));
 
     const sources: SourceEntry[] = record.sources

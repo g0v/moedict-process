@@ -46,9 +46,22 @@ describe('historical-scripts compiler', () => {
   it('resolves stroke webp/jpg pairs from record + manifest in canonical script order', () => {
     const output = compileHistoricalScripts(recordsText, manifestText);
     expect(output['U+4E00']?.strokes).toEqual([
-      { key: '楷書', webp: 'media/1/kai.webp', jpg: 'media/1/kai.jpg' },
+      { key: '楷書', webp: 'media/1/kai.webp', preview: 'media/1/kai.jpg' },
       { key: '甲骨文', webp: 'media/1/jia.webp' },
     ]);
+  });
+
+  it('accepts a lossless-PNG-derived preview path for a stroke asset that was actually BMP, not JPEG', () => {
+    const bmpDerived = record({
+      strokes: [{ key: '楷書', gif: 'https://x/kai.gif', jpg: 'https://x/bmp-source.jpg' }],
+      sources: [],
+    });
+    const manifest = [
+      manifestRow({ url: 'https://x/kai.gif', localPath: 'media/1/kai.webp' }),
+      manifestRow({ url: 'https://x/bmp-source.jpg', localPath: 'media/1/bmp-source.png' }),
+    ].join('\n');
+    const output = compileHistoricalScripts(bmpDerived, manifest);
+    expect(output['U+4E00']?.strokes[0]?.preview).toBe('media/1/bmp-source.png');
   });
 
   it('rewrites citation-embedded upstream image URLs to local mirrored paths', () => {
@@ -126,7 +139,7 @@ describe('historical-scripts compiler', () => {
     const output = compileHistoricalScripts(recordsText, manifest, { 'https://x/kai.gif': { reason: 'confirmed permanent 404 on manual recheck', source: 'test' } });
     const kai = output['U+4E00']?.strokes.find((s) => s.key === '楷書');
     expect(kai?.webp).toBeUndefined();
-    expect(kai?.jpg).toBe('media/1/kai.jpg');
+    expect(kai?.preview).toBe('media/1/kai.jpg');
   });
 
   it('drops a stroke entry entirely when every field it has is a known gap', () => {
