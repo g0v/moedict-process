@@ -27,16 +27,37 @@ describe('writeXrefs', () => {
     expect(fs.existsSync(path.join(out, 'a', 'xref.json'))).toBe(false);
   });
 
-  it('writes Taiwanese sectioned mappings with identity empty components', () => {
+  it('preserves Taiwanese heteronym IDs independently of forward deduplication', () => {
     fs.writeFileSync(
       path.join(input, 'x-華語對照表.csv'),
-      '華語,詞條編號,詞條名稱\n同僚,2,同事\n同僚,3,同僚\n不存在,4,無\n',
+      [
+        '華語,詞條編號,詞條名稱',
+        '依照,9746,照',
+        '按照,9746,照',
+        '照,9747,照',
+        '證照,9746,照',
+        '照,9746,照',
+        '依照,9746,照',
+        '',
+      ].join('\n'),
     );
-    writeXrefs(input, out, new Set(['同僚']));
-    expect(readJson(out, 'a/xref.json')).toEqual({ t: { 同僚: '同事,', 萌: '發穎' } });
-    expect(readJson(out, 't/xref.json')).toEqual({ a: { 同事: '同僚', 同僚: '', 發穎: '萌' } });
+    writeXrefs(input, out, new Set(['依照', '按照', '照', '證照']));
+    expect(readJson(out, 'a/xref.json')).toEqual({
+      t: { 依照: '照', 按照: '照', 照: '', 證照: '照', 萌: '發穎' },
+    });
+    expect(readJson(out, 't/xref.json')).toEqual({
+      a: { 照: '依照,按照,,證照', 發穎: '萌' },
+    });
+    expect(readJson(out, 't/xref-by-id.json')).toEqual({
+      a: {
+        照: {
+          '9746': ['依照', '按照', '證照', '照'],
+          '9747': ['照'],
+        },
+      },
+    });
     expect(fs.readFileSync(path.join(out, 'a', 'xref.json'), 'utf8')).toBe(
-      '{"t":{"同僚":"同事,","萌":"發穎"}}\n',
+      '{"t":{"依照":"照","按照":"照","照":"","萌":"發穎","證照":"照"}}\n',
     );
   });
 

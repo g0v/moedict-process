@@ -14,22 +14,20 @@ Treat every accepted TWBLG correspondence as the semantic triple:
 (mandarin, taiwaneseTitle, heteronymId)
 ```
 
-The forward Mandarin-to-Taiwanese map retains its legacy string format and deduplicates by `(mandarin, taiwaneseTitle)`. The reverse Taiwanese-to-Mandarin map makes a clean cutover to explicit records grouped by Taiwanese title:
+The existing `a/xref.json` and `t/xref.json` string maps are frozen downstream contracts: the live legacy `moedict.org` frontend reads reverse values as comma-delimited strings. They therefore remain byte-compatible. A new `t/xref-by-id.json` sidecar is generated from the same accepted rows and groups Mandarin words by Taiwanese title and heteronym ID:
 
 ```json
 {
   "a": {
-    "照": [
-      { "id": "9746", "word": "依照" },
-      { "id": "9746", "word": "按照" },
-      { "id": "9747", "word": "照" },
-      { "id": "9746", "word": "證照" }
-    ]
+    "照": {
+      "9746": ["依照", "按照", "證照"],
+      "9747": ["照"]
+    }
   }
 }
 ```
 
-Reverse records deduplicate by the complete triple and preserve first-source order. Identity correspondences remain explicit words rather than the legacy empty-string sentinel. This representation lets consumers group or render records by heteronym ID without semantic inference.
+Sidecar words deduplicate by the complete triple and preserve first-source order. Identity correspondences remain explicit words rather than the legacy empty-string sentinel. The legacy maps and sidecar share one row loop, preventing independent pipelines from drifting.
 
 ## Directional deduplication
 
@@ -64,7 +62,7 @@ flatten(reverseGroups) == dedupe(acceptedTriples)
 
 with reverse group identity `(taiwaneseTitle, heteronymId)`. LemmaScript proves the per-triple projection; focused behavioral tests prove grouping, order, complete-triple deduplication, and flattening over collections. CSV decoding, Mandarin-title membership, the existing digit filter, canonical JSON serialization, and filesystem output remain trusted runtime boundaries.
 
-The verified helper must not allocate temporary provenance containers beyond the reverse record required by the output contract. It must preserve the input string values exactly; normalization is not introduced.
+The verified helpers return their input strings directly and allocate nothing. Group arrays are the required sidecar output; no temporary provenance objects or normalization are introduced.
 
 ## Input acceptance
 
@@ -78,19 +76,19 @@ Malformed or ineligible rows remain omitted. No new normalization or CSV dialect
 
 ## Output compatibility
 
-`t/xref.json` is intentionally a breaking schema change from `Record<string, string>` to `Record<string, Array<{ id: string; word: string }>>` inside its `a` section.
+`t/xref.json` remains `Record<string, string>` because `moedict.org`, `moedict.tw`, and the app consume that path. Its comma encoding and empty identity sentinel are unchanged.
 
-`a/xref.json` retains its existing Taiwanese forward-map format, including empty-string identity components, because that direction does not select a Taiwanese heteronym. Hakka xref generation and output remain unchanged.
+`t/xref-by-id.json` adds an `a` section shaped as `Record<taiwaneseTitle, Record<heteronymId, string[]>>`. `a/xref.json` and Hakka output remain unchanged.
 
 ## Verification
 
 Focused tests establish:
 
-1. CSV column 2 survives as every reverse record's `id`.
+1. CSV column 2 survives as each sidecar group key.
 2. Two rows for one Taiwanese title with different IDs remain distinct.
-3. A duplicated `(mandarin, taiwaneseTitle)` forward relation does not suppress a distinct reverse ID relation.
+3. A duplicated `(mandarin, taiwaneseTitle)` legacy relation does not suppress a distinct sidecar ID relation.
 4. Exact duplicate triples collapse while preserving first-source order.
-5. Identity rows emit their Mandarin word explicitly in reverse output.
+5. Identity rows emit their Mandarin word explicitly in the sidecar while legacy output retains its empty sentinel.
 6. Flattening reverse groups reproduces the accepted triples after complete-triple deduplication.
 7. Existing Mandarin-to-Taiwanese bytes remain unchanged for equivalent fixtures.
 8. Hakka output remains unchanged.
@@ -103,4 +101,4 @@ Focused tests establish:
 - Changing Hakka cross-references.
 - Updating web consumers in this repository change.
 - Inferring heteronym IDs from titles, readings, or definitions.
-- Adding compatibility sidecars, aliases, or dual reverse representations.
+- Replacing or aliasing either legacy `xref.json` representation.

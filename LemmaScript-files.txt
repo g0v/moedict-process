@@ -5,5 +5,6 @@ src/pack/autolink.ts
 src/pack/special.ts
 src/pack/pipeline.ts
 src/pack/variants.ts
+src/pack/xref.ts
 src/process.ts
 src/excel.ts

@@ -37,6 +37,12 @@ Each directory contains its source-defined subset of:
 - `xref.json` — cross-language mapping, shipped for Mandarin, Taiwanese, and
   Hakka. The pack generates it from optional explicit correspondence side inputs
   (`x-華語對照表.csv` and `work-in-progress.json`), not dictionary entries.
+- `xref-by-id.json` — Taiwanese-only ID-aware sidecar generated from the same
+  `x-華語對照表.csv` rows as `xref.json`. Its `a` section maps each Taiwanese
+  title to heteronym-ID groups of Mandarin words:
+  `Record<string, Record<string, string[]>>`. Identity rows contain the explicit
+  Mandarin word. The legacy `xref.json` comma encoding remains unchanged for
+  deployed consumers.
 - `=<category>.json` — Mandarin category list files.
 - `@<radical>.json` — Mandarin radical list files.
 
