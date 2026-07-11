@@ -93,6 +93,23 @@ describe('historical-scripts compiler', () => {
     expect(output['U+4E00']).toBeUndefined();
   });
 
+  it('rejects a URL whose latest manifest row is failed, even if an earlier row for the same URL was ok (append-only manifest)', () => {
+    const manifest = [
+      ...manifestFixture,
+      manifestRow({ url: 'https://x/kai.gif', status: 'failed', localPath: '' }),
+    ].join('\n');
+    expect(() => compileHistoricalScripts(recordsText, manifest)).toThrow('unmirrored asset');
+  });
+
+  it('accepts a URL whose latest manifest row is ok, even if an earlier row for the same URL was failed (retry succeeded)', () => {
+    const manifest = [
+      manifestRow({ url: 'https://x/kai.gif', status: 'failed', localPath: '' }),
+      ...manifestFixture,
+    ].join('\n');
+    const output = compileHistoricalScripts(recordsText, manifest);
+    expect(output['U+4E00']?.strokes.find((s) => s.key === '楷書')?.webp).toBe('media/1/kai.webp');
+  });
+
   it('throws when a stroke asset failed to mirror rather than dropping it silently', () => {
     const manifest = manifestFixture.map((line) => {
       const parsed = JSON.parse(line) as { url: string };

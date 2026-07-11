@@ -110,8 +110,14 @@ function scriptOrderCompare(order: readonly string[], a: string, b: string): num
  */
 export function compileHistoricalScripts(recordsText: string, manifestText: string): HistoricalScriptsOutput {
   const allRows = parseMirrorManifest(manifestText);
+  // Manifests are append-only across resumable acquisition passes, so a URL can
+  // have more than one row (e.g. an earlier "ok" whose local file was later lost
+  // or corrupted, retried on a subsequent run and this time recorded "failed").
+  // Collapse to the latest row per URL first — Map construction keeps the last
+  // occurrence of a duplicate key — THEN filter by status, so a stale earlier
+  // "ok" can never outrank its own URL's newest, possibly-failed, outcome.
   const allRowsByUrl = new Map(allRows.map((r) => [r.url, r]));
-  const urlToLocalPath = new Map(allRows.filter((r) => r.status === 'ok').map((r) => [r.url, r.localPath]));
+  const urlToLocalPath = new Map([...allRowsByUrl.values()].filter((r) => r.status === 'ok').map((r) => [r.url, r.localPath]));
 
   const output: HistoricalScriptsOutput = {};
   for (const record of parseHistoricalRecords(recordsText)) {
