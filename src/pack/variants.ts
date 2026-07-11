@@ -49,12 +49,12 @@ export function classifyHexCodePoint(cp: number): 'resolved' | 'private-use' | '
   return 'resolved';
 }
 
-function codepoint(cp: number): string {
+export function codepoint(cp: number): string {
   if (!isUnicodeScalar(cp)) throw new Error(`Invalid Unicode scalar: ${cp.toString(16)}`);
   return `U+${cp.toString(16).toUpperCase()}`;
 }
 
-function cpFromChar(value: string): number | undefined {
+export function cpFromChar(value: string): number | undefined {
   const values = [...value];
   if (values.length !== 1) return undefined;
   const cp = values[0]?.codePointAt(0);

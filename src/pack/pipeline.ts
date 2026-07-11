@@ -23,6 +23,7 @@ import { writeGeneratedIndex } from './index';
 import { writeXrefs } from './xref';
 import { normalizeCsldPua } from './csld-pua';
 import { writeVariantsIndex } from './variants';
+import { writeHistoricalScriptsIndex } from './historical-scripts';
 
 export interface PackOptions {
   lang: Lang | 'all';
@@ -30,6 +31,8 @@ export interface PackOptions {
   outputDir: string;
   /** Optional separately obtained variants snapshot directory. */
   variantsInputDir?: string;
+  /** Optional separately obtained historical-scripts mirror manifest directory. */
+  historicalScriptsInputDir?: string;
   /** Worker count for autolink. Default: os.availableParallelism(). Set 1 to force serial. */
   concurrency?: number;
 }
@@ -45,7 +48,7 @@ export async function runPack(options: PackOptions): Promise<void> {
   fs.mkdirSync(options.outputDir, { recursive: true });
 
   for (const lang of langs) {
-    await packLang(lang, options.inputDir, options.outputDir, concurrency, options.variantsInputDir);
+    await packLang(lang, options.inputDir, options.outputDir, concurrency, options.variantsInputDir, options.historicalScriptsInputDir);
   }
 
   const dictCatPath = path.join(options.inputDir, 'moedict-data/dict-cat.json');
@@ -63,6 +66,7 @@ async function packLang(
   outputDir: string,
   concurrency: number,
   variantsInputDir?: string,
+  historicalScriptsInputDir?: string,
 ): Promise<void> {
   const extraAllowlist = lang === 'h' ? HAKKA_LITERAL_PUA : undefined;
   const entriesForPrefix = loadGrokEntries(lang, inputDir, IDS2UNI);
@@ -154,6 +158,9 @@ async function packLang(
   buildSpecialPacks(lang, outputDir);
   if (lang === 'a' && variantsInputDir) {
     writeVariantsIndex(variantsInputDir, outputDir);
+  }
+  if (lang === 'a' && historicalScriptsInputDir) {
+    writeHistoricalScriptsIndex(historicalScriptsInputDir, outputDir);
   }
   if (lang === 't') {
     const csvPath = path.join(inputDir, 'moedict-data-twblg/uni/詞目總檔.csv');
