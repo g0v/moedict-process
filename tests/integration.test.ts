@@ -22,7 +22,7 @@ function modernRow(fields: {
   synonyms?: string;
   antonyms?: string;
   definitions?: string;
-  notes?: string;
+  crossReference?: string;
 }): unknown[] {
   const row = new Array(18).fill('');
   row[0] = fields.title;
@@ -35,7 +35,7 @@ function modernRow(fields: {
   row[13] = fields.synonyms ?? '';
   row[14] = fields.antonyms ?? '';
   row[15] = fields.definitions ?? '';
-  row[16] = fields.notes ?? '';
+  row[16] = fields.crossReference ?? '';
   return row;
 }
 
