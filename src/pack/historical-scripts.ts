@@ -10,7 +10,7 @@ const STROKE_SCRIPT_ORDER = ['楷書', '篆書', '隸書', '行書', '草書', '
  * "漢字源流彙編" description: 甲骨文、金文、戰國文字、小篆(篆文)、隸書、楷書). */
 const SOURCE_SCRIPT_ORDER = ['甲骨文', '金文', '戰國文字', '篆文', '隸書', '楷書'];
 
-export type MirrorRole = 'stroke-webp' | 'stroke-jpg' | 'source-png' | 'citation-inline-png';
+export type MirrorRole = 'stroke-animation' | 'stroke-preview' | 'source-form' | 'citation-inline';
 export interface MirrorManifestRow { url: string; localPath: string; status: 'ok' | 'failed'; }
 export interface HistoricalRecordStroke { key: string; gif?: string; jpg?: string; }
 export interface HistoricalRecordSourceForm { image?: string; citation?: string; }
@@ -21,11 +21,11 @@ export interface HistoricalRecord {
   strokes: HistoricalRecordStroke[];
   sources: HistoricalRecordSource[];
 }
-/** `preview` may be a `.jpg` (the common case) or a `.png` (a small number of
- * upstream assets are served at a `.jpg` URL but are actually another raster
- * format — observed: BMP — losslessly re-encoded to PNG instead of accepting
- * a lossy JPEG re-encode; the field is named format-agnostically for exactly
- * this reason, with the real extension always visible in the path itself). */
+/** Every mirrored asset is a lossless WebP file (GIF animations via
+ * `gif2webp`; JPEG, BMP-mislabeled-as-JPEG, and PNG sources via
+ * `cwebp -lossless -exact`) — the compiler enforces this via
+ * `assertWebpLocalPath()`, so `preview` always points to a `.webp` path
+ * regardless of the original upstream format. */
 export interface StrokeEntry { key: string; webp?: string; preview?: string; }
 export interface SourceForm { image: string; citation: string; }
 export interface SourceEntry { key: string; forms: SourceForm[]; }
@@ -85,6 +85,21 @@ function parseHistoricalRecords(recordsText: string): HistoricalRecord[] {
 }
 
 /**
+ * Every successful mirror asset is a lossless WebP file (see `StrokeEntry`'s
+ * doc comment) — enforced here, at the single chokepoint every resolved
+ * local path passes through, rather than trusted from the manifest. A
+ * manifest row with a non-`.webp` `localPath` is a hard compile error: it
+ * indicates either a stale pre-unification manifest or a mirror-side
+ * regression, never something to silently accept or reformat.
+ */
+function assertWebpLocalPath(localPath: string, character: string, assetKind: string): string {
+  if (!localPath.endsWith('.webp')) {
+    throw new Error(`Historical-scripts ${assetKind} for ${character} mirror path must end in .webp: ${localPath}`);
+  }
+  return localPath;
+}
+
+/**
  * Resolve one upstream asset URL to its mirrored local path.
  * - Successfully mirrored: returns the local path.
  * - A confirmed, reviewed, permanent gap (`knownGaps`): returns `undefined`
@@ -101,7 +116,7 @@ function parseHistoricalRecords(recordsText: string): HistoricalRecord[] {
  */
 function resolveLocalPath(url: string, character: string, assetKind: string, urlToLocalPath: ReadonlyMap<string, string>, allRowsByUrl: ReadonlyMap<string, MirrorManifestRow>, knownGaps: KnownGaps, usedGaps: Set<string>): string | undefined {
   const localPath = urlToLocalPath.get(url);
-  if (localPath !== undefined) return localPath;
+  if (localPath !== undefined) return assertWebpLocalPath(localPath, character, assetKind);
   const knownRow = allRowsByUrl.get(url);
   if (url in knownGaps && knownRow?.status === 'failed') {
     usedGaps.add(url);

@@ -25,10 +25,10 @@ function manifestRow(overrides: Record<string, unknown>): string {
 
 const manifestFixture = [
   manifestRow({ url: 'https://x/kai.gif', localPath: 'media/1/kai.webp' }),
-  manifestRow({ url: 'https://x/kai.jpg', localPath: 'media/1/kai.jpg' }),
+  manifestRow({ url: 'https://x/kai.jpg', localPath: 'media/1/kai-preview.webp' }),
   manifestRow({ url: 'https://x/jia.gif', localPath: 'media/1/jia.webp' }),
-  manifestRow({ url: 'https://x/source1.png', localPath: 'media/1/source1.png' }),
-  manifestRow({ url: 'https://x/inline1.png', localPath: 'media/1/inline1.png' }),
+  manifestRow({ url: 'https://x/source1.png', localPath: 'media/1/source1.webp' }),
+  manifestRow({ url: 'https://x/inline1.png', localPath: 'media/1/inline1.webp' }),
 ];
 const manifestText = manifestFixture.join('\n');
 const recordsText = record({});
@@ -46,28 +46,32 @@ describe('historical-scripts compiler', () => {
   it('resolves stroke webp/jpg pairs from record + manifest in canonical script order', () => {
     const output = compileHistoricalScripts(recordsText, manifestText);
     expect(output['U+4E00']?.strokes).toEqual([
-      { key: '楷書', webp: 'media/1/kai.webp', preview: 'media/1/kai.jpg' },
+      { key: '楷書', webp: 'media/1/kai.webp', preview: 'media/1/kai-preview.webp' },
       { key: '甲骨文', webp: 'media/1/jia.webp' },
     ]);
   });
 
-  it('accepts a lossless-PNG-derived preview path for a stroke asset that was actually BMP, not JPEG', () => {
-    const bmpDerived = record({
-      strokes: [{ key: '楷書', gif: 'https://x/kai.gif', jpg: 'https://x/bmp-source.jpg' }],
-      sources: [],
-    });
-    const manifest = [
-      manifestRow({ url: 'https://x/kai.gif', localPath: 'media/1/kai.webp' }),
-      manifestRow({ url: 'https://x/bmp-source.jpg', localPath: 'media/1/bmp-source.png' }),
-    ].join('\n');
-    const output = compileHistoricalScripts(bmpDerived, manifest);
-    expect(output['U+4E00']?.strokes[0]?.preview).toBe('media/1/bmp-source.png');
+  it('rejects a successful manifest asset that is not WebP', () => {
+    const nonWebpManifest = manifestFixture
+      .map((line) => line.replace('media/1/source1.webp', 'media/1/source1.png'))
+      .join('\n');
+    expect(() => compileHistoricalScripts(recordsText, nonWebpManifest)).toThrow('must end in .webp');
+  });
+
+  it('emits only WebP paths for stroke previews, source forms, and inline citation images', () => {
+    const output = compileHistoricalScripts(recordsText, manifestText);
+    const paths = [
+      ...Object.values(output).flatMap((entry) => entry.strokes.flatMap((stroke) => [stroke.webp, stroke.preview].filter((v): v is string => v !== undefined))),
+      ...Object.values(output).flatMap((entry) => entry.sources.flatMap((source) => source.forms.flatMap((form) => [form.image]))),
+    ];
+    expect(paths.length).toBeGreaterThan(0);
+    expect(paths.every((value) => value.endsWith('.webp'))).toBe(true);
   });
 
   it('rewrites citation-embedded upstream image URLs to local mirrored paths', () => {
     const output = compileHistoricalScripts(recordsText, manifestText);
     expect(output['U+4E00']?.sources).toEqual([
-      { key: '金文', forms: [{ image: 'media/1/source1.png', citation: '集成5318( <img src="media/1/inline1.png" style="width:20px" />丞卣)' }] },
+      { key: '金文', forms: [{ image: 'media/1/source1.webp', citation: '集成5318( <img src="media/1/inline1.webp" style="width:20px" />丞卣)' }] },
     ]);
   });
 
@@ -76,10 +80,10 @@ describe('historical-scripts compiler', () => {
       record({ character: '戌', found: true, strokes: [], sources: [{ key: '篆文', forms: [{ image: 'https://x/shared.png', citation: '說文古文' }] }] }),
       record({ character: '酉', found: true, strokes: [], sources: [{ key: '篆文', forms: [{ image: 'https://x/shared.png', citation: '說文古文' }] }] }),
     ].join('\n');
-    const manifest = [manifestRow({ url: 'https://x/shared.png', localPath: 'media/shared.png' })].join('\n');
+    const manifest = [manifestRow({ url: 'https://x/shared.png', localPath: 'media/shared.webp' })].join('\n');
     const output = compileHistoricalScripts(shared, manifest);
-    expect(output['U+620C']?.sources[0]?.forms).toEqual([{ image: 'media/shared.png', citation: '說文古文' }]);
-    expect(output['U+9149']?.sources[0]?.forms).toEqual([{ image: 'media/shared.png', citation: '說文古文' }]);
+    expect(output['U+620C']?.sources[0]?.forms).toEqual([{ image: 'media/shared.webp', citation: '說文古文' }]);
+    expect(output['U+9149']?.sources[0]?.forms).toEqual([{ image: 'media/shared.webp', citation: '說文古文' }]);
   });
 
   it('sorts source script keys in oldest-to-newest citation order', () => {
@@ -92,9 +96,9 @@ describe('historical-scripts compiler', () => {
       ],
     });
     const manifest = [
-      manifestRow({ url: 'https://x/kai-src.png', localPath: 'm/kai.png' }),
-      manifestRow({ url: 'https://x/jia-src.png', localPath: 'm/jia.png' }),
-      manifestRow({ url: 'https://x/zhanguo-src.png', localPath: 'm/zg.png' }),
+      manifestRow({ url: 'https://x/kai-src.png', localPath: 'm/kai.webp' }),
+      manifestRow({ url: 'https://x/jia-src.png', localPath: 'm/jia.webp' }),
+      manifestRow({ url: 'https://x/zhanguo-src.png', localPath: 'm/zg.webp' }),
     ].join('\n');
     const output = compileHistoricalScripts(multi, manifest);
     expect(output['U+4E00']?.sources.map((s) => s.key)).toEqual(['甲骨文', '戰國文字', '楷書']);
@@ -139,7 +143,7 @@ describe('historical-scripts compiler', () => {
     const output = compileHistoricalScripts(recordsText, manifest, { 'https://x/kai.gif': { reason: 'confirmed permanent 404 on manual recheck', source: 'test' } });
     const kai = output['U+4E00']?.strokes.find((s) => s.key === '楷書');
     expect(kai?.webp).toBeUndefined();
-    expect(kai?.preview).toBe('media/1/kai.jpg');
+    expect(kai?.preview).toBe('media/1/kai-preview.webp');
   });
 
   it('drops a stroke entry entirely when every field it has is a known gap', () => {
@@ -165,11 +169,11 @@ describe('historical-scripts compiler', () => {
       sources: [{ key: '金文', forms: [{ image: 'https://x/source1.png', citation: 'cite(<img src="https://x/gap-inline.png"/>)' }] }],
     });
     const manifest = [
-      manifestRow({ url: 'https://x/source1.png', localPath: 'media/1/source1.png' }),
+      manifestRow({ url: 'https://x/source1.png', localPath: 'media/1/source1.webp' }),
       manifestRow({ url: 'https://x/gap-inline.png', status: 'failed', localPath: '' }),
     ].join('\n');
     const output = compileHistoricalScripts(withGapInline, manifest, { 'https://x/gap-inline.png': { reason: 'confirmed gap', source: 'test' } });
-    expect(output['U+4E00']?.sources).toEqual([{ key: '金文', forms: [{ image: 'media/1/source1.png', citation: 'cite()' }] }]);
+    expect(output['U+4E00']?.sources).toEqual([{ key: '金文', forms: [{ image: 'media/1/source1.webp', citation: 'cite()' }] }]);
   });
 
   it('hard-fails when a known-gaps entry is never actually referenced or consumed (stale allowlist entry)', () => {
@@ -204,7 +208,7 @@ describe('historical-scripts compiler', () => {
       strokes: [],
       sources: [{ key: '金文', forms: [{ image: 'https://x/source1.png', citation: `集成6500(鼓${String.fromCodePoint(0xf4bd)}作父辛觶)` }] }],
     });
-    const manifest = [manifestRow({ url: 'https://x/source1.png', localPath: 'media/1/source1.png' })].join('\n');
+    const manifest = [manifestRow({ url: 'https://x/source1.png', localPath: 'media/1/source1.webp' })].join('\n');
     expect(() => compileHistoricalScripts(withPuaCitation, manifest)).toThrow('uncurated PUA codepoint');
   });
 
@@ -214,7 +218,7 @@ describe('historical-scripts compiler', () => {
       strokes: [],
       sources: [{ key: '金文', forms: [{ image: 'https://x/source1.png', citation: rawCitation }] }],
     });
-    const manifest = [manifestRow({ url: 'https://x/source1.png', localPath: 'media/1/source1.png' })].join('\n');
+    const manifest = [manifestRow({ url: 'https://x/source1.png', localPath: 'media/1/source1.webp' })].join('\n');
     const output = compileHistoricalScripts(withPuaCitation, manifest, {}, { [rawCitation]: '集成6500(鼓貞作父辛觶)' });
     expect(output['U+4E00']?.sources[0]?.forms[0]?.citation).toBe('集成6500(鼓貞作父辛觶)');
   });
