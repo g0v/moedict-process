@@ -4,5 +4,6 @@ src/pack/prefix.ts
 src/pack/autolink.ts
 src/pack/special.ts
 src/pack/pipeline.ts
+src/pack/variants.ts
 src/process.ts
 src/excel.ts

@@ -161,7 +161,7 @@ Output conventions
 
 詳見 `src/process.ts::codepointCompare` 與 `src/parse.ts::stripDefLine`。
 
-### Dedup behaviour — 花枝招展 bug
+### Dedup behaviour
 
 舊版以整份 heteronym 序列化字串做去重，碰到 `b` 欄位一份 ASCII 空白、一份
 U+3000 全形空白的雙胞胎條目時判定為不同，兩份都留下，導致下游 `moedict.tw`
