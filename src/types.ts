@@ -45,6 +45,4 @@ export interface ColumnMap {
   pinyin: number;
   synonyms: number;
   antonyms: number;
-  definitions: number;
-  notes: number;
 }

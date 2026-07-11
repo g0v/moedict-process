@@ -1,4 +1,5 @@
 import { dedupeHeteronyms } from './dedup';
+import { definitionSourceColumn } from './excel';
 import { normalizeText } from './normalize';
 import {
   UnbalancedBracesError,
@@ -167,8 +168,6 @@ const LEGACY_COLUMNS: ColumnMap = {
   pinyin: 7,
   synonyms: 8,
   antonyms: 9,
-  definitions: 10,
-  notes: 11,
 };
 
 const MODERN_COLUMNS: ColumnMap = {
@@ -181,8 +180,6 @@ const MODERN_COLUMNS: ColumnMap = {
   pinyin: 11,
   synonyms: 13,
   antonyms: 14,
-  definitions: 15,
-  notes: 16,
 };
 
 export function pickColumnMap(rowLength: number): ColumnMap {
@@ -208,19 +205,23 @@ function cellInt(cells: readonly SourceCell[], idx: number, fallback = 0): numbe
 /** Parse one source-row into {basic, heteronym}. */
 export function parseHeteronym(cells: readonly SourceCell[]): { basic: BasicEntry; heteronym: Heteronym } {
   const col = pickColumnMap(cells.length);
+  const definitionsColumn = definitionSourceColumn(cells.length, 0);
+  const editorialColumn = definitionSourceColumn(cells.length, 1);
 
   const heteronym: Heteronym = {
     bopomofo: cellText(cells, col.bopomofo),
     pinyin: cellText(cells, col.pinyin),
-    definitions: parseDefs(cellText(cells, col.definitions)),
+    definitions: parseDefs(cellText(cells, definitionsColumn)),
   };
 
   associateToDefs('synonyms', normalizeText(cellText(cells, col.synonyms)), heteronym.definitions!);
   associateToDefs('antonyms', normalizeText(cellText(cells, col.antonyms)), heteronym.definitions!);
 
-  const notesCell = cells[col.notes];
-  if (notesCell && notesCell.ctype !== 0) {
-    heteronym.definitions!.push(...parseDefs(cellText(cells, col.notes)));
+  if (editorialColumn >= 0) {
+    const editorialCell = cells[editorialColumn];
+    if (editorialCell && editorialCell.ctype !== 0) {
+      heteronym.definitions!.push(...parseDefs(cellText(cells, editorialColumn)));
+    }
   }
 
   for (const def of heteronym.definitions!) {

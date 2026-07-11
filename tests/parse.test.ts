@@ -8,7 +8,7 @@ import {
   pickColumnMap,
   postProcess,
 } from '../src/parse';
-import type { Definition, DictionaryEntry, SourceCell } from '../src/types';
+import type { ColumnMap, Definition, DictionaryEntry, SourceCell } from '../src/types';
 
 function cell(value: unknown, ctype = 1): SourceCell {
   return { value, ctype };
@@ -285,7 +285,13 @@ describe('pickColumnMap', () => {
 });
 
 describe('parseHeteronym', () => {
-  function modernRow(overrides: Partial<Record<keyof import('../src/types').ColumnMap, unknown>> = {}): SourceCell[] {
+  type RoutedColumnKey = Exclude<keyof ColumnMap, 'definitions' | 'notes'>;
+  type ModernRowOverrides = Partial<Record<RoutedColumnKey, unknown>> & {
+    definitions?: unknown;
+    crossReference?: unknown;
+  };
+
+  function modernRow(overrides: ModernRowOverrides = {}): SourceCell[] {
     const row: SourceCell[] = new Array(20).fill(null).map(() => empty());
     row[0] = cell('花枝招展'); // title
     row[2] = cell(2); // term_type (複詞 — strips radical/strokes)
@@ -296,12 +302,23 @@ describe('parseHeteronym', () => {
     row[11] = cell('huā zhī zhāo zhǎn'); // pinyin
     row[13] = cell(''); // synonyms
     row[14] = cell(''); // antonyms
-    row[15] = cell('形容花木枝葉迎風搖擺。'); // definitions
-    row[16] = empty(); // notes (empty)
+    row[15] = cell(overrides.definitions ?? '形容花木枝葉迎風搖擺。');
+    row[16] = overrides.crossReference === undefined ? empty() : cell(overrides.crossReference);
+
+    const map = {
+      title: 0,
+      term_type: 2,
+      radical: 4,
+      stroke_count: 5,
+      non_radical_stroke_count: 6,
+      bopomofo: 8,
+      pinyin: 11,
+      synonyms: 13,
+      antonyms: 14,
+    } satisfies Record<RoutedColumnKey, number>;
     for (const [key, value] of Object.entries(overrides)) {
-      const map = { title: 0, term_type: 2, radical: 4, stroke_count: 5, non_radical_stroke_count: 6, bopomofo: 8, pinyin: 11, synonyms: 13, antonyms: 14, definitions: 15, notes: 16 };
-      const idx = map[key as keyof typeof map];
-      row[idx] = cell(value);
+      if (key === 'definitions' || key === 'crossReference') continue;
+      row[map[key as RoutedColumnKey]] = cell(value);
     }
     return row;
   }
@@ -327,12 +344,37 @@ describe('parseHeteronym', () => {
     expect(basic.non_radical_stroke_count).toBe(4);
   });
 
-  it('appends notes block to the definitions when the notes cell is non-empty', () => {
-    const row = modernRow({ definitions: '[名]主義。', notes: '[動]附義。' });
-    row[16] = { value: '[動]附義。', ctype: 1 };
+  it('ignores modern multi-pronunciation metadata, including internal IDs', () => {
+    const row = modernRow({
+      definitions: '化育萬物的大自然。',
+      crossReference: '(二)ㄗㄠˋ ．ㄏㄨㄚ\n（095030026）',
+    });
     const { heteronym } = parseHeteronym(row);
-    expect(heteronym.definitions).toHaveLength(2);
-    expect(heteronym.definitions![1]!.type).toBe('動');
+    expect(heteronym.definitions).toEqual([{ def: '化育萬物的大自然。' }]);
+  });
+
+  it('ignores fullwidth modern multi-pronunciation metadata', () => {
+    const row = modernRow({
+      definitions: '從高處往下看。',
+      crossReference: '（二）ㄌㄧㄣˋ',
+    });
+    const { heteronym } = parseHeteronym(row);
+    expect(heteronym.definitions).toEqual([{ def: '從高處往下看。' }]);
+  });
+
+  it('preserves legacy editorial notes from column 11', () => {
+    const row: SourceCell[] = new Array(14).fill(null).map(() => empty());
+    row[0] = cell(2);
+    row[2] = cell('舊格式');
+    row[6] = cell('ㄐㄧㄡˋ ㄍㄜˊ ㄕˋ');
+    row[7] = cell('jiù gé shì');
+    row[10] = cell('[名]主義。');
+    row[11] = cell('[動]附義。');
+    const { heteronym } = parseHeteronym(row);
+    expect(heteronym.definitions).toEqual([
+      { def: '主義。', type: '名' },
+      { def: '附義。', type: '動' },
+    ]);
   });
 
   it('drops empty bopomofo/pinyin/definitions from heteronym', () => {
@@ -401,15 +443,16 @@ describe('parseHeteronym', () => {
     expect(heteronym.definitions![0]!.def).toBe('主義1.詳細');
   });
 
-  it('skips notes when notes cell ctype === 0 even if its value is non-empty', () => {
-    // Tests the `notesCell.ctype !== 0` half of the guard: with `true`, a
-    // ctype-0 stub cell that happens to carry text would still be parsed
-    // and appended, double-counting the data.
-    const row = modernRow({ definitions: '主義。' });
-    row[16] = { value: '附義。', ctype: 0 };
+  it('skips legacy editorial notes when ctype === 0 even if the cell has text', () => {
+    const row: SourceCell[] = new Array(14).fill(null).map(() => empty());
+    row[0] = cell(2);
+    row[2] = cell('舊格式');
+    row[6] = cell('ㄐㄧㄡˋ ㄍㄜˊ ㄕˋ');
+    row[7] = cell('jiù gé shì');
+    row[10] = cell('主義。');
+    row[11] = { value: '附義。', ctype: 0 };
     const { heteronym } = parseHeteronym(row);
-    expect(heteronym.definitions).toHaveLength(1);
-    expect(heteronym.definitions![0]!.def).toBe('主義。');
+    expect(heteronym.definitions).toEqual([{ def: '主義。' }]);
   });
 });
 
