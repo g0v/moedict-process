@@ -24,6 +24,9 @@ parse.log
 *.swo
 *~
 
+# Local feature worktrees
+.worktrees/
+
 # Bun/TS
 node_modules/
 coverage/

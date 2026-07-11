@@ -6,6 +6,21 @@ import { codepointCount } from './codepoint';
 import { canonicalJson } from './serializer';
 
 type StringMap = Record<string, string>;
+type ReverseXrefById = Record<string, Record<string, string[]>>;
+
+export function reverseXrefId(heteronymId: string): string {
+  //@ verify
+  //@ requires heteronymId.length > 0
+  //@ ensures \result === heteronymId
+  return heteronymId;
+}
+
+export function reverseXrefWord(mandarin: string): string {
+  //@ verify
+  //@ requires mandarin.length > 0
+  //@ ensures \result === mandarin
+  return mandarin;
+}
 
 function append(map: StringMap, key: string, value: string): void {
   map[key] = map[key] === undefined ? value : `${map[key]},${value}`;
@@ -77,19 +92,35 @@ export function writeXrefs(
   if (fs.existsSync(twblgPath)) {
     const aToT: StringMap = {};
     const tToA: StringMap = {};
+    const tToAById: ReverseXrefById = {};
     append(aToT, '萌', '發穎');
     append(tToA, '發穎', '萌');
     for (const row of fs.readFileSync(twblgPath, 'utf8').replace(/^\uFEFF/, '').split('\n').slice(1)) {
-      const [mandarin, , taiwanese] = row.replace(/\r$/, '').split(',', 3);
-      if (!mandarin || taiwanese === undefined || !mandarinTitles.has(mandarin) || /\d/.test(taiwanese)) continue;
+      const [mandarin, heteronymId, taiwanese] = row.replace(/\r$/, '').split(',', 3);
+      if (
+        !mandarin ||
+        !heteronymId ||
+        !taiwanese ||
+        !mandarinTitles.has(mandarin) ||
+        /\d/.test(taiwanese)
+      ) continue;
+
+      const id = reverseXrefId(heteronymId);
+      const word = reverseXrefWord(mandarin);
+      const byId = tToAById[taiwanese] ?? (tToAById[taiwanese] = {});
+      const words = byId[id] ?? (byId[id] = []);
+      if (!words.includes(word)) words.push(word);
+
       const forward = taiwanese === mandarin ? '' : taiwanese;
       const reverse = taiwanese === mandarin ? '' : mandarin;
-      if (aToT[mandarin]?.split(',').includes(forward)) continue;
-      append(aToT, mandarin, forward);
-      append(tToA, taiwanese, reverse);
+      if (!aToT[mandarin]?.split(',').includes(forward)) {
+        append(aToT, mandarin, forward);
+        append(tToA, taiwanese, reverse);
+      }
     }
     a.t = aToT;
     writeJson(outputDir, 't', 'xref.json', { a: tToA });
+    writeJson(outputDir, 't', 'xref-by-id.json', { a: tToAById });
   }
 
   const hakkaPath = path.join(inputDir, 'work-in-progress.json');
