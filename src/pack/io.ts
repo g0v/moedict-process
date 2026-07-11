@@ -34,13 +34,20 @@ export class PackWriter {
     }
     if (!acceptor.acceptFileTitle(fileTitle)) return null;
 
-    const filename = filenameForTitle(fileTitle);
-    const langDir = path.join(this.outputDir, lang);
-    fs.mkdirSync(langDir, { recursive: true });
-    const entryPath = path.join(langDir, `${filename}.json`);
     // Legacy link2pack.pl substitution before writing.
     const processedPayload = payload.replace(/`\{~/g, '{');
-    fs.writeFileSync(entryPath, processedPayload);
+
+    // Standalone per-title `.json` file: additionally NFD-deduped to avoid a
+    // silent same-path overwrite on a normalization-insensitive filesystem
+    // (APFS). The aggregated bucket below is unaffected by this — see
+    // FileTitleAcceptor's doc comment for why the two gates differ.
+    if (acceptor.acceptFileWrite(fileTitle)) {
+      const filename = filenameForTitle(fileTitle);
+      const langDir = path.join(this.outputDir, lang);
+      fs.mkdirSync(langDir, { recursive: true });
+      const entryPath = path.join(langDir, `${filename}.json`);
+      fs.writeFileSync(entryPath, processedPayload);
+    }
 
     const key = `${lang}:${bucket}`;
     if (!this.prepack.has(key)) this.prepack.set(key, []);

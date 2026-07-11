@@ -28,8 +28,15 @@ outputDir/
 Each directory contains its source-defined subset of:
 
 - `<title>.json` — one JSON file per entry, named by the entry title with `` ` ``
-  and `~` removed. Files containing IDS characters (`⿰⿸⿺`) or duplicate NFD
-  filenames are skipped by the writer.
+  and `~` removed. Files containing IDS characters (`⿰⿸⿺`) are skipped
+  entirely (no file, no bucket entry); among titles that are exact-string
+  duplicates (matching `link2pack.pl`'s `$seen{$file}++`), only the first is
+  written to both the file and the bucket. Among the remaining accepted
+  titles, only the first NFD-normalized form gets a standalone file — later
+  NFD-equivalent titles (e.g. a CJK Compatibility Ideograph and the base
+  character it canonically decomposes to) still get their own bucket entry,
+  just no standalone file, avoiding a silent same-path overwrite on a
+  normalization-insensitive filesystem (APFS).
 - `index.json` — a language index where that language's source provides one.
   The core pipeline generates Mandarin and Hakka indexes from accepted emitted
   titles in deterministic Unicode scalar order; Taiwanese retains its source
@@ -80,10 +87,15 @@ Each bucket file is a single-line JSON object keyed by escaped title:
 - `lenToRegex.*.json` construction retains legacy JavaScript `Array.sort()`
   ordering (UTF-16 code units). Legacy `a/index.json` was a separately
   maintained checked-in artifact; the pack command did not generate it.
-- Bucket filenames and per-entry `.json` filenames are NFD-normalized by the
-  filesystem. The pack writer rejects filenames containing IDS characters
-  (`⿰⿸⿺`) and rejects duplicate NFD filenames before both file write and bucket
-  append, matching `link2pack.pl` lines 47–49.
+- Per-entry `.json` filenames additionally apply NFD-normalized dedup — only
+  the first NFD-equivalent title gets a standalone file, protecting against a
+  silent same-path overwrite on a normalization-insensitive filesystem
+  (APFS). This does NOT gate the bucket append: `link2pack.pl`'s `%seen`
+  dedup (lines 47–49) uses exact Perl string equality, never Unicode
+  normalization, and gates both file and bucket identically — the pack
+  writer's `FileTitleAcceptor.acceptFileTitle` mirrors that with exact-string
+  equality for IDS/bucket rejection, while a separate `acceptFileWrite` gate
+  applies NFD dedup only to the standalone file.
 - Unsubstituted `{[hex]}` tokens and variant selectors (`\uDB40[\uDD00-\uDD0F]`)
   are filtered upstream by `isSkippedTitle` in the autolink/prefix stage.
 
@@ -160,3 +172,16 @@ property tests and golden-output regression tests:
    `MOEDICT_PACK_INPUT` golden pass and downstream staging are green. Do not
    delete pack Makefile targets, close Dependabot PRs as “retired”, or archive
    the repo while rollback still depends on the legacy toolchain.
+7. **Fixed: NFD-gated bucket drop (was a bug, not an intended deviation)** —
+   an earlier port of `FileTitleAcceptor` NFD-normalized the bucket-append
+   gate as well as the standalone per-title file gate. `link2pack.pl`'s
+   `%seen` dedup (lines 47–49) is exact Perl string equality; its
+   NFD-sensitivity is confined to a startup refusal to run on a
+   normalization-insensitive filesystem (APFS), protecting only the
+   standalone per-title file from a same-path overwrite. The over-broad gate
+   silently dropped 53 legitimate entries workbook-wide — CJK Compatibility
+   Ideograph "variant glyph" documentation entries (e.g. 善 U+5584's 異體字
+   U+2F845, `「善」的異體字。`) whose title canonically NFD-decomposes to
+   another entry's title. Fixed by splitting `acceptFileTitle` (bucket gate,
+   exact-string only) from `acceptFileWrite` (standalone-file gate, NFD
+   dedup) in `src/pack/title-filter.ts`.

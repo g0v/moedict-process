@@ -17,21 +17,48 @@ describe('PackWriter', () => {
     expect(fs.existsSync(path.join(out, 'pack', '7.txt'))).toBe(true);
   });
 
-  it('skips NFD-duplicate and IDS filenames without writing files or bucket entries', () => {
+  it('rejects IDS filenames for both file and bucket entry', () => {
     const writer = new PackWriter(out);
     const aDir = path.join(out, 'a');
-    writer.writeEntry('a', 7, 'first', 'é', '{"t":"é"}');
-    writer.writeEntry('a', 7, 'duplicate', 'e\u0301', '{"t":"e\u0301"}');
+    writer.writeEntry('a', 7, 'first', '中', '{"t":"中"}');
     writer.writeEntry('a', 7, 'ids', '⿰亻恩', '{"t":"⿰亻恩"}');
     writer.finalize();
 
-    const files = fs.readdirSync(aDir);
-    expect(files.length).toBe(1);
     expect(fs.existsSync(path.join(aDir, '⿰亻恩.json'))).toBe(false);
+    const bucket = fs.readFileSync(path.join(out, 'pack', '7.txt'), 'utf8');
+    expect(bucket).toContain('"first":');
+    expect(bucket).not.toContain('"ids":');
+  });
 
+  it('rejects an exact-string duplicate title for both file and bucket entry, matching legacy $seen{$file}++', () => {
+    const writer = new PackWriter(out);
+    const aDir = path.join(out, 'a');
+    writer.writeEntry('a', 7, 'first', '中', '{"t":"中"}');
+    writer.writeEntry('a', 7, 'duplicate', '中', '{"t":"中"}');
+    writer.finalize();
+
+    expect(fs.readdirSync(aDir).length).toBe(1);
     const bucket = fs.readFileSync(path.join(out, 'pack', '7.txt'), 'utf8');
     expect(bucket).toContain('"first":');
     expect(bucket).not.toContain('"duplicate":');
-    expect(bucket).not.toContain('"ids":');
+  });
+
+  it('keeps an NFD-equivalent but exact-string-distinct title in the bucket, but skips its standalone per-title file (avoids a silent APFS overwrite)', () => {
+    const writer = new PackWriter(out);
+    const aDir = path.join(out, 'a');
+    const nfc = 'é';
+    const nfd = 'e\u0301';
+    writer.writeEntry('a', 7, 'first', nfc, `{"t":"${nfc}"}`);
+    writer.writeEntry('a', 7, 'duplicate', nfd, `{"t":"${nfd}"}`);
+    writer.finalize();
+
+    // Only the first NFD-normalized form gets a standalone file.
+    expect(fs.readdirSync(aDir).length).toBe(1);
+    expect(fs.existsSync(path.join(aDir, `${nfc}.json`))).toBe(true);
+
+    // Both remain in the bucket — they are distinct dictionary entries.
+    const bucket = fs.readFileSync(path.join(out, 'pack', '7.txt'), 'utf8');
+    expect(bucket).toContain('"first":');
+    expect(bucket).toContain('"duplicate":');
   });
 });

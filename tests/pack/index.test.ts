@@ -33,11 +33,23 @@ describe('writeGeneratedIndex', () => {
     expect(() => writeGeneratedIndex('h', ['\u{F0009}'], out)).not.toThrow();
   });
 
-  it('omits an NFD-equivalent filename rejected by the writer', () => {
+  it('indexes both NFC and NFD forms of a title (bucket-distinct, matching legacy exact-string dedup)', () => {
     const writer = new PackWriter(out);
-    const first = writer.writeEntry('a', 0, 'é', 'é', '{"t":"é"}');
-    const duplicate = writer.writeEntry('a', 0, 'é', 'é', '{"t":"é"}');
+    const nfc = 'é';
+    const nfd = 'e\u0301';
+    expect(nfc).not.toBe(nfd);
+    expect(nfc.normalize('NFD')).toBe(nfd);
+    const first = writer.writeEntry('a', 0, nfc, nfc, `{"t":"${nfc}"}`);
+    const second = writer.writeEntry('a', 0, nfd, nfd, `{"t":"${nfd}"}`);
+    writeGeneratedIndex('a', [first, second].filter((title): title is string => title !== null), out);
+    expect(readJson(out, 'a/index.json')).toEqual([nfd, nfc]);
+  });
+
+  it('omits an exact-string duplicate title rejected by the writer', () => {
+    const writer = new PackWriter(out);
+    const first = writer.writeEntry('a', 0, '中', '中', '{"t":"中"}');
+    const duplicate = writer.writeEntry('a', 0, '中', '中', '{"t":"中"}');
     writeGeneratedIndex('a', [first, duplicate].filter((title): title is string => title !== null), out);
-    expect(readJson(out, 'a/index.json')).toEqual(['é']);
+    expect(readJson(out, 'a/index.json')).toEqual(['中']);
   });
 });
