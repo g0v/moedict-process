@@ -285,7 +285,7 @@ describe('pickColumnMap', () => {
 });
 
 describe('parseHeteronym', () => {
-  type RoutedColumnKey = Exclude<keyof ColumnMap, 'definitions' | 'notes'>;
+  type RoutedColumnKey = keyof ColumnMap;
   type ModernRowOverrides = Partial<Record<RoutedColumnKey, unknown>> & {
     definitions?: unknown;
     crossReference?: unknown;
