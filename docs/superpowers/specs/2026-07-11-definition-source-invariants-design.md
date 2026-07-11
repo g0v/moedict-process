@@ -27,6 +27,7 @@ The `-1` sentinel means that the source is absent. The helper also proves explic
 ## LemmaScript properties
 
 The selector will carry verified preconditions and postconditions equivalent to:
+The TypeScript parameter is `source: number`, constrained by the LemmaScript precondition, rather than the numeric-literal union `0 | 1`; the current LemmaScript backend does not lower numeric-literal unions reliably.
 
 ```text
 requires rowLength >= 0
@@ -39,12 +40,14 @@ rowLength < 18 && source == 1 ==> result == 11
 rowLength >= 18 ==> result != 16
 ```
 
-These properties establish the source-provenance invariant for every `parseDefs` call made by `parseHeteronym`:
+These properties establish the selector mapping:
 
 ```text
-modern definitions originate only from column 15
-legacy definitions originate only from columns 10 or 11
+modern source slots resolve only to column 15 or absence
+legacy source slots resolve only to columns 10 or 11
 ```
+
+`parseHeteronym` and `parseDefs` remain outside LemmaScript's verified subset because they use regexes and object assembly. Code structure makes the selector their exclusive definition-source router; focused behavioral tests establish that `parseHeteronym` consumes that mapping without bypassing it.
 
 The proof deliberately does not classify strings such as `（digits）`. Marker exclusion would prove a symptom and could reject legitimate text while allowing future metadata formats to leak.
 
@@ -65,7 +68,8 @@ Focused tests will establish:
 3. Exact `造化`-shaped modern rows do not emit internal IDs.
 4. Fullwidth multi-pronunciation metadata does not become a definition.
 5. The real current workbook produces zero definitions matching the known leaked metadata shapes after parsing.
-6. `bun run verify` proves the selector contracts.
+6. A before/after full-workbook semantic diff characterizes every changed entry, including any heteronym selected differently because metadata removal happens before `dedupeHeteronyms`.
+7. `bun run verify` proves the selector contracts.
 
 ## Non-goals
 
