@@ -18,7 +18,12 @@ import type { AutolinkJob, AutolinkResult, AutolinkCandidate } from './autolink-
 import { PackWriter } from './io';
 import { bucketIndex, isSkippedTitle } from './bucket';
 import { cLocaleCompare, canonicalJson } from './serializer';
-import { buildSpecialPacks, buildTwblgIndex, buildCategoryFiles } from './special';
+import {
+  appendTwblgEmptyReadings,
+  buildSpecialPacks,
+  buildTwblgIndex,
+  buildCategoryFiles,
+} from './special';
 import { writeGeneratedIndex } from './index';
 import { writeXrefs } from './xref';
 import { normalizeCsldPua } from './csld-pua';
@@ -297,6 +302,10 @@ function loadGrokEntries(
       lang === 'c' ? normalizeCsldPua : undefined,
     );
     for (const entry of grokked) all.push(entry);
+  }
+  if (lang === 't') {
+    const csvPath = path.join(inputDir, 'moedict-data-twblg/uni/詞目總檔.csv');
+    if (fs.existsSync(csvPath)) appendTwblgEmptyReadings(all, csvPath);
   }
   return all;
 }

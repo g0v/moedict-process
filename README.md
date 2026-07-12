@@ -97,6 +97,11 @@ MOEDICT_PACK_INPUT=<inputDir> MOEDICT_PACK_OUTPUT=<outputDir> \
 `dict-hakka.json`、`dict-csld.json`、`dict-concised.audio.json`（選用），
 以及 xref 對照側輸入 `x-華語對照表.csv` 與 `work-in-progress.json`。
 
+臺灣台語打包另讀 `moedict-data-twblg/uni/詞目總檔.csv`：屬性 `2`
+的無義項音讀若已有同名辭典條目，會補成 `definitions: []` 的異音（不複製
+`主編碼`，避免前端誤當音檔 ID）；只有無義項音讀、沒有既有條目的詞目仍只
+收入 `t/index.json`。
+
 輸出為 moedict 前後端消費的完整資料樹：逐條目 JSON（`a/ t/ h/ c/`）、
 bucket 檔（`pack/ ptck/ phck/ pcck/`）、`index.json`、`xref.json`、
 `lenToRegex.*.json` / `precomputed.json`、`@部首` 與 `=分類` 特殊檔。

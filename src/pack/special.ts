@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { Lang } from './types';
+import type { GrokEntry, Lang } from './types';
 import { assertNoPua, HAKKA_LITERAL_PUA } from './autolink';
 
 const PACK_DIR: Record<Lang, string> = {
@@ -86,8 +86,19 @@ export function buildCategoryFiles(
   }
 }
 
-const TWBLG_ATTRS = new Set(['1', '2', '5', '25']);
+const TWBLG_ATTRS: Record<string, true> = {
+  '1': true,
+  '2': true,
+  '5': true,
+  '25': true,
+};
 const IDS_PATTERN = /[⿰⿸]/;
+const TWBLG_READING_LABELS: Record<string, string> = {
+  '1': '文',
+  '2': '白',
+  '3': '俗',
+  '4': '替',
+};
 
 export async function buildTwblgIndex(csvPath: string, outputPath: string): Promise<void> {
   const raw = await Bun.file(csvPath).text();
@@ -98,7 +109,7 @@ export async function buildTwblgIndex(csvPath: string, outputPath: string): Prom
     if (row.length < 3) continue;
     const attr = row[1]!.trim();
     const title = row[2]!.trim();
-    if (!TWBLG_ATTRS.has(attr)) continue;
+    if (!TWBLG_ATTRS[attr]) continue;
     if (IDS_PATTERN.test(title)) continue;
     entries.push(title);
   }
@@ -107,6 +118,59 @@ export async function buildTwblgIndex(csvPath: string, outputPath: string): Prom
   const content = JSON.stringify(unique, null, 1) + '\n';
   assertNoPua(content, `twblg index ${outputPath}`);
   fs.writeFileSync(outputPath, content);
+}
+
+/**
+ * Restore source attr=2 readings for titles that already have a dictionary
+ * entry. The legacy JSON generator selects attrs 1/25, so otherwise valid
+ * alternate readings such as 蛇 siâ disappear with their empty definition
+ * lists. Attr=2-only titles remain excluded: this function enriches entries
+ * rather than creating definition-less headwords without stroke metadata.
+ *
+ * 主編碼 is deliberately not copied. Packed Taiwanese `_` identifiers are
+ * treated by clients as audio filenames, which attr=2 source rows do not
+ * guarantee.
+ */
+export function appendTwblgEmptyReadings(
+  entries: GrokEntry[],
+  csvPath: string,
+): void {
+  const entriesByTitle = new Map<string, GrokEntry>();
+  for (const entry of entries) {
+    const title = entry.t.normalize('NFD');
+    if (!entriesByTitle.has(title)) entriesByTitle.set(title, entry);
+  }
+
+  const raw = fs.readFileSync(csvPath, 'utf8');
+  for (const line of raw.split(/\r?\n/)) {
+    if (!line) continue;
+    const row = parseCsvLine(line);
+    if (row.length < 5 || row[1]?.trim() !== '2') continue;
+
+    const title = row[2]!.trim().normalize('NFD');
+    const trs = row[3]!.trim().normalize('NFD');
+    if (!title || !trs) continue;
+
+    const entry = entriesByTitle.get(title);
+    if (!entry) continue;
+    const heteronyms = Array.isArray(entry.h)
+      ? (entry.h as Array<Record<string, unknown>>)
+      : [];
+    if (!Array.isArray(entry.h)) entry.h = heteronyms;
+
+    const reading = TWBLG_READING_LABELS[row[4]!.trim()];
+    const duplicate = heteronyms.some(
+      (heteronym) =>
+        typeof heteronym['T'] === 'string' &&
+        heteronym['T'].normalize('NFD') === trs &&
+        (heteronym['reading'] ?? '') === (reading ?? ''),
+    );
+    if (duplicate) continue;
+
+    const heteronym: Record<string, unknown> = { T: trs, d: [] };
+    if (reading) heteronym['reading'] = reading;
+    heteronyms.push(heteronym);
+  }
 }
 
 /** Minimal RFC-style CSV row parser (handles quoted fields). */
