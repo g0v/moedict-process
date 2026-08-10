@@ -12,6 +12,8 @@ export interface Heteronym {
   bopomofo?: string;
   pinyin?: string;
   definitions?: Definition[];
+  order?: number;
+  sourceIndex?: number;
 }
 
 export interface BasicEntry {
@@ -45,4 +47,5 @@ export interface ColumnMap {
   pinyin: number;
   synonyms: number;
   antonyms: number;
+  multi_pronunciation_order?: number;
 }

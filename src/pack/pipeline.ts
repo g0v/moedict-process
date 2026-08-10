@@ -311,9 +311,12 @@ function loadGrokEntries(
 }
 
 /**
- * Load and preprocess the Mandarin audio map (legacy autolink.ls lines 6-11).
- * Returns a title/title.bopomofo → audio_id lookup, or null if the audio file
- * is absent (non-Mandarin or missing data).
+ * Load the Mandarin audio map by its source-authoritative
+ * `title.bopomofo` identity.
+ *
+ * The source contains no title-only records. The legacy port synthesized one
+ * for every source record; that fabricated alias cannot identify a reading and
+ * made audio ownership depend on heteronym array position.
  */
 function loadAudioMap(
   lang: Lang,
@@ -332,9 +335,11 @@ function loadAudioMap(
       .replace(/\.（.*?）/, '.')
       .replace(/，/g, '')
       .replace(/（.*）.*/, '');
-    map[key] = v;
-    // Legacy assigns unconditionally; later source entries override earlier ones.
-    map[key.replace(/\..*/, '')] = v;
+    const separator = key.lastIndexOf('.');
+    if (separator <= 0 || separator === key.length - 1) continue;
+    const title = key.slice(0, separator);
+    const bopomofo = normalizeAudioBopomofo(key.slice(separator + 1));
+    if (bopomofo.length > 0) map[`${title}.${bopomofo}`] = v;
   }
   return map;
 }
@@ -354,6 +359,24 @@ function stripEnglishSuffix(title: string): {
   };
 }
 
+/**
+ * Canonicalize the separator variation shared by the revised dictionary and
+ * concise audio sources. Leading/trailing whitespace is source noise, and
+ * ASCII/U+3000 runs are the same internal separator. A separator after an
+ * explicit tone mark is optional in the audio source, while one after a
+ * toneless (first-tone) syllable remains significant: `ㄒㄧ　ㄢ` and `ㄒㄧㄢ`
+ * are different readings. Parenthesized annotations are not pronounced; tone
+ * marks, including leading neutral-tone ˙, are preserved.
+ */
+export function normalizeAudioBopomofo(value: string): string {
+  return value
+    .replace(/^（.*）/u, '')
+    .replace(/（.*）.*/u, '')
+    .trim()
+    .replace(/[ \u3000]+/gu, '\u3000')
+    .replace(/([ˇˊˋ])\u3000/gu, '$1');
+}
+
 function injectAudioId(
   entry: GrokEntry,
   title: string,
@@ -362,22 +385,25 @@ function injectAudioId(
   if (!audioMap) return;
   const heteronyms = entry.h as Array<Record<string, unknown>> | undefined;
   if (!heteronyms) return;
-  for (let i = 0; i < heteronyms.length; i++) {
-    const b = heteronyms[i]?.['b'];
-    if (typeof b !== 'string' || b.length === 0) break;
-    const normalizedBopomofo = b
-      .replace(/ /g, '\u3000')
-      .replace(/([ˇˊˋ])\u3000/g, '$1')
-      .replace(/ /g, '\u3000')
-      .replace(/^（.*）/, '')
-      .replace(/（.*）.*/, '');
-    const audioTitle = title.replace(/，/g, '');
-    const audioId =
-      i > 0
-        ? audioMap[`${audioTitle}.${normalizedBopomofo}`]
-        : audioMap[`${audioTitle}.${normalizedBopomofo}`] ??
-          (title.length > 1 ? audioMap[title] : undefined);
-    if (audioId) heteronyms[i]!['='] = audioId;
+
+  const byBopomofo = new Map<string, Array<Record<string, unknown>>>();
+  for (const heteronym of heteronyms) {
+    const bopomofo = heteronym['b'];
+    if (typeof bopomofo !== 'string' || bopomofo.length === 0) continue;
+    const normalized = normalizeAudioBopomofo(bopomofo);
+    if (normalized.length === 0) continue;
+    const matches = byBopomofo.get(normalized);
+    if (matches) matches.push(heteronym);
+    else byBopomofo.set(normalized, [heteronym]);
+  }
+
+  const audioTitle = title.replace(/，/g, '');
+  for (const [bopomofo, matches] of byBopomofo) {
+    // The audio map has no pinyin. If more than one reading has the same
+    // normalized Zhuyin, the source cannot justify choosing either owner.
+    if (matches.length !== 1) continue;
+    const audioId = audioMap[`${audioTitle}.${bopomofo}`];
+    if (audioId) matches[0]!['='] = audioId;
   }
 }
 

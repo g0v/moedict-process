@@ -311,6 +311,7 @@ describe('parseHeteronym', () => {
       radical: 4,
       stroke_count: 5,
       non_radical_stroke_count: 6,
+      multi_pronunciation_order: 7,
       bopomofo: 8,
       pinyin: 11,
       synonyms: 13,
@@ -559,36 +560,7 @@ describe('postProcess', () => {
     expect(h.pinyin).toBe('(一)x');
   });
 
-  it('treats missing bopomofo as empty string in the sort comparator', () => {
-    // Tests the two `?? ''` fallbacks inside `heteronyms.sort(...)`: a sentinel
-    // like 'Stryker was here!' sorts between 'A' and 'Z' (instead of before
-    // both like '' does), shifting the no-bopomofo entry's position. V8's
-    // insertion sort happens to call the comparator asymmetrically, so each
-    // input order only triggers one of the two `??` sites: [Z, NB, A] forces
-    // NB onto the b-side (kills col 78), [A, NB, Z] forces NB onto the a-side
-    // (kills col 46). Both arrangements should produce the same sorted output.
-    for (const input of [['Z', 'NB', 'A'], ['A', 'NB', 'Z']] as const) {
-      const entries = new Map<string, DictionaryEntry>();
-      entries.set('字', {
-        title: '字',
-        heteronyms: input.map((x) =>
-          x === 'NB'
-            ? { definitions: [{ def: 'NO_BOPO' }] }
-            : { bopomofo: x, definitions: [{ def: x }] },
-        ),
-      });
-      postProcess(entries);
-      expect(entries.get('字')!.heteronyms.map((h) => h.definitions![0]!.def)).toEqual([
-        'NO_BOPO',
-        'A',
-        'Z',
-      ]);
-    }
-  });
-
-  it('sorts heteronyms within an entry by bopomofo', () => {
-    // Tests `heteronyms.sort(...)` on line 255: removing the .sort() call
-    // would leave heteronyms in source-input order.
+  it('preserves source-input order when no explicit order or phonetic markers exist', () => {
     const entries = new Map<string, DictionaryEntry>();
     entries.set('字', {
       title: '字',
@@ -599,6 +571,65 @@ describe('postProcess', () => {
       ],
     });
     postProcess(entries);
-    expect(entries.get('字')!.heteronyms.map((h) => h.bopomofo)).toEqual(['ㄅ', 'ㄈ', 'ㄉ']);
+    expect(entries.get('字')!.heteronyms.map((h) => h.bopomofo)).toEqual(['ㄈ', 'ㄅ', 'ㄉ']);
+  });
+
+  it('sorts heteronyms by explicit order field (鳥 and 行 cases)', () => {
+    const entries = new Map<string, DictionaryEntry>();
+    entries.set('鳥', {
+      title: '鳥',
+      heteronyms: [
+        { bopomofo: 'ㄉㄧㄠˇ', pinyin: 'diǎo', order: 2, definitions: [{ def: 'vulgar' }] },
+        { bopomofo: 'ㄋㄧㄠˇ', pinyin: 'niǎo', order: 1, definitions: [{ def: 'bird' }] },
+      ],
+    });
+    entries.set('行', {
+      title: '行',
+      heteronyms: [
+        { bopomofo: 'ㄏㄤˊ', pinyin: 'háng', order: 3, definitions: [{ def: 'row' }] },
+        { bopomofo: 'ㄏㄤˋ', pinyin: 'hàng', order: 4, definitions: [{ def: 'hang' }] },
+        { bopomofo: 'ㄒㄧㄥˊ', pinyin: 'xíng', order: 1, definitions: [{ def: 'walk' }] },
+        { bopomofo: 'ㄒㄧㄥˋ', pinyin: 'xìng', order: 2, definitions: [{ def: 'conduct' }] },
+      ],
+    });
+    postProcess(entries);
+    expect(entries.get('鳥')!.heteronyms.map((h) => h.bopomofo)).toEqual(['ㄋㄧㄠˇ', 'ㄉㄧㄠˇ']);
+    expect(entries.get('行')!.heteronyms.map((h) => h.bopomofo)).toEqual([
+      'ㄒㄧㄥˊ',
+      'ㄒㄧㄥˋ',
+      'ㄏㄤˊ',
+      'ㄏㄤˋ',
+    ]);
+  });
+
+  it('sorts legacy (一)/(二) phonetic index markers in bopomofo/pinyin', () => {
+    const entries = new Map<string, DictionaryEntry>();
+    entries.set('字', {
+      title: '字',
+      heteronyms: [
+        { bopomofo: '(二)ㄅ', pinyin: '(二)b', definitions: [{ def: 'two' }] },
+        { bopomofo: '(一)ㄚ', pinyin: '(一)a', definitions: [{ def: 'one' }] },
+      ],
+    });
+    postProcess(entries);
+    expect(entries.get('字')!.heteronyms.map((h) => h.bopomofo)).toEqual(['ㄚ', 'ㄅ']);
+  });
+
+  it('leaves unranked heteronyms in place and sorts only ranked slots', () => {
+    const entries = new Map<string, DictionaryEntry>();
+    entries.set('字', {
+      title: '字',
+      heteronyms: [
+        { bopomofo: ' unranked', definitions: [{ def: 'unranked' }] },
+        { bopomofo: 'ㄉ', order: 2, definitions: [{ def: 'two' }] },
+        { bopomofo: 'ㄅ', order: 1, definitions: [{ def: 'one' }] },
+      ],
+    });
+    postProcess(entries);
+    expect(entries.get('字')!.heteronyms.map((h) => h.bopomofo)).toEqual([
+      ' unranked',
+      'ㄅ',
+      'ㄉ',
+    ]);
   });
 });

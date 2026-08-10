@@ -176,6 +176,7 @@ const MODERN_COLUMNS: ColumnMap = {
   radical: 4,
   stroke_count: 5,
   non_radical_stroke_count: 6,
+  multi_pronunciation_order: 7,
   bopomofo: 8,
   pinyin: 11,
   synonyms: 13,
@@ -240,17 +241,24 @@ export function parseHeteronym(cells: readonly SourceCell[]): { basic: BasicEntr
   }
 
   const trimmed: Heteronym = {};
+  if (col.multi_pronunciation_order !== undefined) {
+    const order = cellInt(cells, col.multi_pronunciation_order, 0);
+    if (order > 0) trimmed.order = order;
+  }
   if (heteronym.bopomofo) trimmed.bopomofo = heteronym.bopomofo;
   if (heteronym.pinyin) trimmed.pinyin = heteronym.pinyin;
   if (heteronym.definitions && heteronym.definitions.length > 0) {
     trimmed.definitions = heteronym.definitions;
   }
-
   return { basic, heteronym: trimmed };
 }
 
 const PHONETIC_INDEX = /^\([一二三四五六七八九十]\)/u;
 const PHONETIC_INDEX_DEF = /^(\([一二三四五六七八九十]\))(.+)/u;
+const CHINESE_NUMERALS: Record<string, number> = {
+  '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
+  '六': 6, '七': 7, '八': 8, '九': 9, '十': 10,
+};
 
 /**
  * Dedupe heteronyms and strip source-only phonetic-index markers like (一)、(二).
@@ -264,7 +272,42 @@ export function postProcess(entries: Map<string, DictionaryEntry>): void {
 
   for (const entry of entries.values()) {
     const { heteronyms } = entry;
-    heteronyms.sort((a, b) => (a.bopomofo ?? '').localeCompare(b.bopomofo ?? ''));
+
+    for (let i = 0; i < heteronyms.length; i++) {
+      const h = heteronyms[i]!;
+      h.sourceIndex = i;
+      if (h.order === undefined || h.order <= 0) {
+        for (const key of ['bopomofo', 'pinyin'] as const) {
+          const value = h[key];
+          if (typeof value === 'string') {
+            const match = PHONETIC_INDEX.exec(value);
+            if (match) {
+              const numChar = match[0].charAt(1);
+              if (CHINESE_NUMERALS[numChar]) {
+                h.order = CHINESE_NUMERALS[numChar];
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const rankedIndices: number[] = [];
+    for (let i = 0; i < heteronyms.length; i++) {
+      if (heteronyms[i]!.order !== undefined && heteronyms[i]!.order! > 0) {
+        rankedIndices.push(i);
+      }
+    }
+
+    if (rankedIndices.length >= 2) {
+      const ranked = rankedIndices
+        .map((idx) => heteronyms[idx]!)
+        .sort((a, b) => (a.order! - b.order!) || (a.sourceIndex! - b.sourceIndex!));
+      for (let k = 0; k < rankedIndices.length; k++) {
+        heteronyms[rankedIndices[k]!] = ranked[k]!;
+      }
+    }
 
     for (const heteronym of heteronyms) {
       if (!heteronym.bopomofo) continue;
@@ -292,9 +335,12 @@ export function postProcess(entries: Map<string, DictionaryEntry>): void {
         heteronym.definitions = kept;
       }
     }
+    for (const heteronym of heteronyms) {
+      delete heteronym.order;
+      delete heteronym.sourceIndex;
+    }
   }
 }
-
 /** Merge a row's {basic, heteronym} into the in-progress entry map. */
 export function mergeRowIntoEntries(
   entries: Map<string, DictionaryEntry>,

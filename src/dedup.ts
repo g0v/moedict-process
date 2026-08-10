@@ -63,8 +63,14 @@ export function dedupeHeteronyms<T extends HeteronymLike>(heteronyms: readonly T
     }
 
     const existing = result[firstIdx]!;
-    const contentSize = JSON.stringify(heteronym).length;
-    const existingSize = JSON.stringify(existing).length;
+    const restCurrent = { ...heteronym } as Record<string, unknown>;
+    const restExisting = { ...existing } as Record<string, unknown>;
+    delete restCurrent.order;
+    delete restCurrent.sourceIndex;
+    delete restExisting.order;
+    delete restExisting.sourceIndex;
+    const contentSize = JSON.stringify(restCurrent).length;
+    const existingSize = JSON.stringify(restExisting).length;
     if (contentSize > existingSize) {
       result[firstIdx] = heteronym;
     }
