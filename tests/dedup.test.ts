@@ -2,7 +2,9 @@ import { describe, expect, it } from 'bun:test';
 import { dedupeHeteronyms, type HeteronymLike } from '../src/dedup';
 
 describe('dedupeHeteronyms', () => {
-  it('removes near-duplicate heteronyms that only differ by whitespace in bopomofo', () => {
+  it('dedupes the 花枝招展 U+3000/ASCII-space source duplicates', () => {
+    // Regression for the live source defect: the same reading uses ASCII
+    // spaces in one row and U+3000 ideographic spaces in the other.
     const input = [
       {
         audio_id: '284300045',
@@ -70,6 +72,20 @@ describe('dedupeHeteronyms', () => {
       { definitions: [{ def: 'B' }] } as HeteronymLike,
     ];
     expect(dedupeHeteronyms(input)).toHaveLength(2);
+  });
+
+  it('keeps both 啚 variant definitions when neither heteronym has a phonetic identity', () => {
+    type DefinitionOnly = HeteronymLike & { definitions: Array<{ def: string }> };
+    const 鄙: DefinitionOnly = { definitions: [{ def: '「鄙」的異體字。' }] };
+    const 圖: DefinitionOnly = { definitions: [{ def: '「圖」的異體字。' }] };
+
+    const result = dedupeHeteronyms([鄙, 圖]);
+
+    // This fails if the hasIdentity() guard is bypassed: both empty identities
+    // collide and the serialization-length tie-breaker discards one variant.
+    expect(result).toEqual([鄙, 圖]);
+    expect(result[0]).toBe(鄙);
+    expect(result[1]).toBe(圖);
   });
 
   it('preserves order of unique heteronyms', () => {
@@ -198,6 +214,26 @@ describe('dedupeHeteronyms', () => {
       expect(result).toHaveLength(1);
       expect(result[0]).toBe(rich);
     });
+    it('keeps only the longer serialization when identical identities have different definitions', () => {
+      const discarded = {
+        bopomofo: 'ㄊㄧㄢ ㄖㄨㄟˋ',
+        pinyin: 'tiān ruì',
+        definitions: [{ def: '上天垂示的好預兆。' }],
+      };
+      const survivor = {
+        bopomofo: 'ㄊㄧㄢ ㄖㄨㄟˋ',
+        pinyin: 'tiān ruì',
+        definitions: [{ def: '天降的祥瑞，為吉兆的一種。' }],
+      };
+
+      const result = dedupeHeteronyms([discarded, survivor]);
+
+      // This pins the current proxy, not an equivalence claim: the survivor's
+      // definitions are not a superset, so the discarded text is genuinely lost.
+      expect(result).toEqual([survivor]);
+      expect(result[0]?.definitions).not.toContainEqual(discarded.definitions[0]);
+    });
+
 
     it('keeps the first-seen heteronym when duplicates have identical content size', () => {
       // Tests the strict `>` (vs `>=`): on a tie, the earlier entry wins.
