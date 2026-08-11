@@ -1,0 +1,72 @@
+[
+  {
+    "title": "鳥",
+    "heteronyms": [
+      { "bopomofo": "ㄋㄧㄠˇ", "pinyin": "niǎo", "definitions": [{ "def": "鳥類。" }] },
+      { "bopomofo": "ㄉㄧㄠˇ", "pinyin": "diǎo", "definitions": [{ "def": "男性生殖器。" }] }
+    ],
+    "translation": {
+      "English": ["bird", "CL:隻|只[zhi1],群[qun2]", "variant of 屌[diao3]", "penis"],
+      "francais": ["oiseau", "196e radical", "pénis"],
+      "Deutsch": ["Vogel (S, Zool)", "Radikal Nr. 196 = Vogel (Sprachw)"]
+    },
+    "English": "bird",
+    "francais": "oiseau",
+    "Deutsch": "Vogel (S, Zool)"
+  },
+  {
+    "title": "和",
+    "heteronyms": [
+      { "bopomofo": "ㄏㄜˊ", "pinyin": "hé", "definitions": [{ "def": "平順。" }] },
+      { "bopomofo": "ㄏㄜˋ", "pinyin": "hè", "definitions": [{ "def": "應和。" }] },
+      { "bopomofo": "ㄏㄨㄛˋ", "pinyin": "huò", "definitions": [{ "def": "攪拌。" }] }
+    ],
+    "translation": {
+      "English": ["and", "together", "to join in singing", "to compose a poem in reply", "to mix (ingredients)", "to blend"],
+      "francais": ["et", "répondre en vers"],
+      "Deutsch": ["und", "sich anschließen"]
+    },
+    "English": "and",
+    "francais": "et",
+    "Deutsch": "und"
+  },
+  {
+    "title": "著",
+    "heteronyms": [
+      { "bopomofo": "ㄓㄨˋ", "pinyin": "zhù", "definitions": [{ "def": "顯明。" }] },
+      { "bopomofo": "ㄓㄨㄛˊ", "pinyin": "zhuó", "definitions": [{ "def": "穿著。" }] },
+      { "bopomofo": "ㄓㄠˊ", "pinyin": "zháo", "definitions": [{ "def": "接觸。" }] },
+      { "bopomofo": "ㄓㄠ", "pinyin": "zhāo", "definitions": [{ "def": "下棋落子。" }] },
+      { "bopomofo": "˙ㄓㄜ", "pinyin": "zhe", "definitions": [{ "def": "助詞。" }] }
+    ],
+    "translation": {
+      "English": ["to wear (clothes)", "to contact", "to touch", "to feel", "to put in contact with", "(chess) move", "(aspect particle)"],
+      "francais": ["porter (vêtement)", "(particule d'aspect)"],
+      "Deutsch": ["anziehen", "berühren"]
+    },
+    "English": "to wear (clothes)",
+    "francais": "porter (vêtement)",
+    "Deutsch": "anziehen"
+  },
+  {
+    "title": "了",
+    "heteronyms": [
+      { "bopomofo": "ㄌㄧㄠˇ", "pinyin": "liǎo", "definitions": [{ "def": "結束。" }] },
+      { "bopomofo": "ㄌㄜ˙", "pinyin": "le", "definitions": [{ "def": "助詞。" }] }
+    ],
+    "translation": {
+      "English": ["to finish", "to understand", "(completed action marker)"]
+    },
+    "English": "to finish"
+  },
+  {
+    "title": "無據",
+    "heteronyms": [
+      { "bopomofo": "ㄨˋ ㄐㄩˋ", "pinyin": "wù jù", "definitions": [{ "def": "無匹配音讀。" }] }
+    ],
+    "translation": {
+      "English": ["unmatched-only source gloss"]
+    },
+    "English": "unmatched-only source gloss"
+  }
+]

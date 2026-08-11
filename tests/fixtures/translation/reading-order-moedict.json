@@ -1,0 +1,40 @@
+[
+  {
+    "title": "鳥",
+    "heteronyms": [
+      { "bopomofo": "ㄋㄧㄠˇ", "pinyin": "niǎo", "definitions": [{ "def": "鳥類。" }] },
+      { "bopomofo": "ㄉㄧㄠˇ", "pinyin": "diǎo", "definitions": [{ "def": "男性生殖器。" }] }
+    ]
+  },
+  {
+    "title": "和",
+    "heteronyms": [
+      { "bopomofo": "ㄏㄜˊ", "pinyin": "hé", "definitions": [{ "def": "平順。" }] },
+      { "bopomofo": "ㄏㄜˋ", "pinyin": "hè", "definitions": [{ "def": "應和。" }] },
+      { "bopomofo": "ㄏㄨㄛˋ", "pinyin": "huò", "definitions": [{ "def": "攪拌。" }] }
+    ]
+  },
+  {
+    "title": "著",
+    "heteronyms": [
+      { "bopomofo": "ㄓㄨˋ", "pinyin": "zhù", "definitions": [{ "def": "顯明。" }] },
+      { "bopomofo": "ㄓㄨㄛˊ", "pinyin": "zhuó", "definitions": [{ "def": "穿著。" }] },
+      { "bopomofo": "ㄓㄠˊ", "pinyin": "zháo", "definitions": [{ "def": "接觸。" }] },
+      { "bopomofo": "ㄓㄠ", "pinyin": "zhāo", "definitions": [{ "def": "下棋落子。" }] },
+      { "bopomofo": "˙ㄓㄜ", "pinyin": "zhe", "definitions": [{ "def": "助詞。" }] }
+    ]
+  },
+  {
+    "title": "了",
+    "heteronyms": [
+      { "bopomofo": "ㄌㄧㄠˇ", "pinyin": "liǎo", "definitions": [{ "def": "結束。" }] },
+      { "bopomofo": "ㄌㄜ˙", "pinyin": "le", "definitions": [{ "def": "助詞。" }] }
+    ]
+  },
+  {
+    "title": "無據",
+    "heteronyms": [
+      { "bopomofo": "ㄨˋ ㄐㄩˋ", "pinyin": "wù jù", "definitions": [{ "def": "無匹配音讀。" }] }
+    ]
+  }
+]

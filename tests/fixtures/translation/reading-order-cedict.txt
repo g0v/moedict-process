@@ -1,0 +1,13 @@
+# Multi-reading CEDICT snippet for gloss-order tests
+鳥 鸟 [diao3] /variant of 屌[diao3]/penis/
+鳥 鸟 [niao3] /bird/CL:隻|只[zhi1],群[qun2]/
+和 和 [he2] /and/together/
+和 和 [he4] /to join in singing/to compose a poem in reply/
+和 和 [huo4] /to mix (ingredients)/to blend/
+著 着 [zhao1] /to put in contact with/(chess) move/
+著 着 [zhao2] /to touch/to feel/
+著 着 [zhe5] /(aspect particle)/
+著 着 [zhuo2] /to wear (clothes)/to contact/
+了 了 [le5] /(completed action marker)/
+了 了 [liao3] /to finish/to understand/
+無據 无据 [wu2 ju4] /unmatched-only source gloss/
